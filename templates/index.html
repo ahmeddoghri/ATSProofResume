@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>ATS Proof Resume</title>
+</head>
+<body>
+    <h2>Upload Your Resume & Job Posting Link</h2>
+    <form action="/upload_resume/" method="post" enctype="multipart/form-data">
+        <label for="file">Resume (PDF):</label>
+        <input type="file" name="file" accept="application/pdf" required><br><br>
+
+        <label for="job_link">Job Posting URL:</label>
+        <input type="text" name="job_link" required><br><br>
+
+        <button type="submit">Submit</button>
+    </form>
+</body>
+</html>
