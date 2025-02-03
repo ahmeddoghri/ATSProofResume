@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 import os
 import shutil
 import zipfile
@@ -24,10 +24,11 @@ async def landing_page(request: Request):
 
 @app.post("/upload_resume/")
 async def upload_resume(
+    request: Request,
     file: UploadFile = File(...), 
     job_link: str = Form(...)
 ):
-    """Handles resume upload and job link submission, processes the resume, and generates a zip file."""
+    """Handles resume upload and job link submission, processes the resume, and sends redirect URL as JSON."""
     
     # Scrape job posting
     job_data = scrape_job_posting(job_link)
@@ -70,7 +71,13 @@ async def upload_resume(
         zipf.write(resume_path, os.path.basename(resume_path))
         zipf.write(formatted_resume_path, os.path.basename(formatted_resume_path))
 
-    return {"download_url": f"/download/{zip_filename}"}
+    # Return JSON response with redirect URL
+    return JSONResponse(content={"redirect_url": f"/result?download_url=/download/{zip_filename}"})
+
+@app.get("/result", response_class=HTMLResponse)
+async def result_page(request: Request, download_url: str):
+    """Serve the result page with the download button."""
+    return templates.TemplateResponse("result.html", {"request": request, "download_url": download_url})
 
 @app.get("/download/{zip_filename}")
 async def download_zip(zip_filename: str):

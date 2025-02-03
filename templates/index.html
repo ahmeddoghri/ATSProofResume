@@ -2,10 +2,31 @@
 <html lang="en">
 <head>
     <title>ATS Proof Resume</title>
+    <script>
+        function handleFormSubmit(event) {
+            event.preventDefault(); // Prevent default form submission
+            var formData = new FormData(event.target);
+
+            fetch("/upload_resume/", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())  // Expect JSON response with redirect URL
+            .then(data => {
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;  // Redirect to result page
+                } else {
+                    alert("Error processing your resume. Please try again.");
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        }
+    </script>
 </head>
 <body>
     <h2>Upload Your Resume & Job Posting Link</h2>
-    <form action="/upload_resume/" method="post" enctype="multipart/form-data">
+    
+    <form onsubmit="handleFormSubmit(event)" enctype="multipart/form-data">
         <label for="file">Resume (PDF):</label>
         <input type="file" name="file" accept="application/pdf" required><br><br>
 
