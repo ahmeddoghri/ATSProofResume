@@ -27,8 +27,8 @@
     <h2>Upload Your Resume & Job Posting Link</h2>
     
     <form onsubmit="handleFormSubmit(event)" enctype="multipart/form-data">
-        <label for="file">Resume (PDF):</label>
-        <input type="file" name="file" accept="application/pdf" required><br><br>
+        <label for="file">Resume (.docx):</label>
+        <input type="file" name="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required><br><br>
 
         <label for="job_link">Job Posting URL:</label>
         <input type="text" name="job_link" required><br><br>
