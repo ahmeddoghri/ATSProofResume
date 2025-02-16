@@ -1,24 +1,65 @@
 import requests
 from bs4 import BeautifulSoup
 import re
+import json
+from langchain_openai import ChatOpenAI
+from langchain.prompts import PromptTemplate
+from langchain_core.output_parsers.json import JsonOutputParser 
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
-def scrape_job_posting(url):
-    """Scrapes job details from the given URL."""
-    try:
-        response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
-        response.raise_for_status()
-    except requests.RequestException as e:
-        return {"company": "Unknown_Company", "content": f"Failed to fetch job posting: {e}"}
+class JobPostingScraper:
+    def __init__(self):
+        self.user_agent = "Mozilla/5.0"
+        self.llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.0)
+        self.extract_prompt_template = (
+            "Extract the following details from the job posting text:\n"
+            "1. Company Name\n"
+            "2. Job Title\n"
+            "3. The main job description text\n\n"
+            "Return the output strictly as a JSON object with keys 'company', 'job_title', and 'job_text'. "
+            "Only respond with valid JSON and nothing else.\n\n"
+            "Job Posting Text:\n{job_posting_text}\n\n"
+            "Output:"
+        )
+        self.extract_prompt = PromptTemplate(
+            template=self.extract_prompt_template,
+            input_variables=["job_posting_text"]
+        )
+        # Initialize the JSON output parser to force JSON output.
+        self.json_parser = JsonOutputParser()
 
-    soup = BeautifulSoup(response.text, "html.parser")
-    job_text = soup.get_text(separator="\n", strip=True)
-    
-    company_name = "Unknown_Company"
-    meta_tags = ["company", "organization", "employer"]
-    for tag in meta_tags:
-        meta_tag = soup.find("meta", {"name": tag})
-        if meta_tag and "content" in meta_tag.attrs:
-            company_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", meta_tag["content"])
-            break
+    def scrape_job_posting(self, url: str) -> dict:
+        """Scrapes job posting text and uses LLM extraction to get key details."""
+        try:
+            response = requests.get(url, headers={"User-Agent": self.user_agent})
+            response.raise_for_status()
+        except requests.RequestException as e:
+            return {"company": "Unknown_Company", "job_title": "Unknown", "job_text": f"Failed to fetch job posting: {e}"}
+        
+        soup = BeautifulSoup(response.text, "html.parser")
+        job_text = soup.get_text(separator="\n", strip=True)
+        
+        # Use LLM to extract structured details with enforced JSON output
+        input_data = {"job_posting_text": job_text}
+        result = (self.extract_prompt | self.llm | self.json_parser).invoke(input=input_data)
+        return result  # Result is a dict with keys 'company', 'job_title', 'job_text'
 
-    return {"company": company_name, "content": job_text}
+    def capture_screenshot(self, url: str, output_path: str) -> None:
+        """Captures a full-page screenshot (including scrolling parts) of the URL using a headless browser."""
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+        driver = webdriver.Chrome(options=chrome_options)
+        try:
+            driver.get(url)
+            driver.implicitly_wait(5)
+            # Calculate full page dimensions
+            total_width = driver.execute_script("return document.body.scrollWidth")
+            total_height = driver.execute_script("return document.body.scrollHeight")
+            driver.set_window_size(total_width, total_height)
+            driver.implicitly_wait(2)
+            driver.save_screenshot(output_path)
+        finally:
+            driver.quit()
