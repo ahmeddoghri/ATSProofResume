@@ -1,85 +1,115 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>ATS Proof Resume</title>
-    <style>
-        /* Progress bar styling */
-        #progress-container {
-            width: 100%;
-            background-color: #ddd;
-            display: none; /* Initially hidden */
-            margin-top: 20px;
-        }
-        #progress-bar {
-            width: 0%;
-            height: 20px;
-            background-color: #4CAF50;
-            text-align: center;
-            color: white;
-        }
-    </style>
-    <script>
-        function handleFormSubmit(event) {
-            event.preventDefault(); // Prevent default form submission
-            var formData = new FormData(event.target);
+  <meta charset="UTF-8">
+  <title>ATS Proof Resume</title>
+  <style>
+    /* Progress bar styling */
+    #progress-container {
+      width: 100%;
+      background-color: #ddd;
+      display: none; /* Initially hidden */
+      margin-top: 20px;
+    }
+    #progress-bar {
+      width: 0%;
+      height: 20px;
+      background-color: #4CAF50;
+      text-align: center;
+      color: white;
+      transition: width 0.25s ease-in-out; /* Smooth CSS transition */
+    }
+  </style>
+  <script>
+    function handleFormSubmit(event) {
+      event.preventDefault(); // Prevent default form submission
+      var formData = new FormData(event.target);
+
+      // Hide the form and show the progress bar
+      document.getElementById('form-container').style.display = 'none';
+      var progressContainer = document.getElementById('progress-container');
+      progressContainer.style.display = 'block';
+      var progressBar = document.getElementById('progress-bar');
+      progressBar.style.width = '0%';
+      progressBar.innerHTML = '0%';
+
+      var currentProgress = 0;
+      
+      // Auto-increment from 0% to 10% before starting the fetch call.
+      var initialInterval = setInterval(function() {
+        if (currentProgress < 10) {
+          currentProgress++;
+          progressBar.style.width = currentProgress + '%';
+          progressBar.innerHTML = currentProgress + '%';
+        } else {
+          clearInterval(initialInterval);
+          
+          // Now that we've reached 10%, start the fetch call.
+          fetch("/upload_resume/", {
+            method: "POST",
+            body: formData
+          })
+          .then(response => response.json())  // Expect JSON response with redirect URL and job_id
+          .then(data => {
+            var redirectUrl = data.redirect_url;
+            var jobId = data.job_id;
+            // Set our starting progress to 10%
+            currentProgress = 10;
+            var latestTarget = 10;
             
-            // Hide the form and show the progress bar
-            document.getElementById('form-container').style.display = 'none';
-            var progressContainer = document.getElementById('progress-container');
-            progressContainer.style.display = 'block';
-            var progressBar = document.getElementById('progress-bar');
-            var progress = 0;
-            var interval = setInterval(function() {
-                // Simulate progress up to 90% until the response arrives
-                if (progress < 90) {
-                    progress += 1;
-                    progressBar.style.width = progress + '%';
-                    progressBar.innerHTML = progress + '%';
-                }
-            }, 100);
-            
-            fetch("/upload_resume/", {
-                method: "POST",
-                body: formData
-            })
-            .then(response => response.json())  // Expect JSON response with redirect URL
-            .then(data => {
-                clearInterval(interval);
-                progressBar.style.width = '100%';
-                progressBar.innerHTML = '100%';
-                if (data.redirect_url) {
-                    window.location.href = data.redirect_url;  // Redirect to result page
-                } else {
-                    alert("Error processing your resume. Please try again.");
-                }
-            })
-            .catch(error => {
-                clearInterval(interval);
-                console.error("Error:", error);
-                alert("Error processing your resume. Please try again.");
-            });
+            // Auto-increment interval: smoothly increment until currentProgress reaches latestTarget.
+            var autoInterval = setInterval(function() {
+              if (currentProgress < latestTarget) {
+                currentProgress++;
+                progressBar.style.width = currentProgress + '%';
+                progressBar.innerHTML = currentProgress + '%';
+              }
+              // When currentProgress reaches 100, clear interval and redirect after a brief delay.
+              if (currentProgress >= 100) {
+                clearInterval(autoInterval);
+                setTimeout(function() {
+                  window.location.href = redirectUrl;
+                }, 900); // 900ms delay to let the user see 100%
+              }
+            }, 25); // Update every 25ms for smooth increments
+
+            // Open WebSocket connection for real progress updates.
+            var ws = new WebSocket("ws://" + window.location.host + "/ws/progress/" + jobId);
+            ws.onmessage = function(event) {
+              var newTarget = parseInt(event.data);
+              // Update latestTarget if the new value is higher.
+              if (newTarget > latestTarget) {
+                latestTarget = newTarget;
+              }
+            };
+          })
+          .catch(error => {
+            console.error("Error:", error);
+            alert("Error processing your resume. Please try again.");
+          });
         }
-    </script>
+      }, 25); // Update every 25ms for the initial auto-increment
+    }
+  </script>
 </head>
 <body>
-    <h2>Upload Your Resume & Job Posting Link</h2>
-    
-    <div id="form-container">
-        <form onsubmit="handleFormSubmit(event)" enctype="multipart/form-data">
-            <label for="file">Resume (.docx):</label>
-            <input type="file" name="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required><br><br>
-            
-            <label for="job_link">Job Posting URL:</label>
-            <input type="text" name="job_link" required><br><br>
-            
-            <button type="submit">Submit</button>
-        </form>
-    </div>
-    
-    <!-- Progress Bar Container -->
-    <div id="progress-container">
-        <div id="progress-bar">0%</div>
-    </div>
+  <h2>Upload Your Resume & Job Posting Link</h2>
+  
+  <div id="form-container">
+    <form onsubmit="handleFormSubmit(event)" enctype="multipart/form-data">
+      <label for="file">Resume (.docx):</label>
+      <input type="file" name="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required><br><br>
+      
+      <label for="job_link">Job Posting URL:</label>
+      <input type="text" name="job_link" required><br><br>
+      
+      <button type="submit">Submit</button>
+    </form>
+  </div>
+  
+  <!-- Progress Bar Container -->
+  <div id="progress-container">
+    <div id="progress-bar">0%</div>
+  </div>
 </body>
 </html>
