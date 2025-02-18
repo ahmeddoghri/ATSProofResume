@@ -30,7 +30,6 @@ class JobPostingScraper:
         self.json_parser = JsonOutputParser()
 
     def scrape_job_posting(self, url: str) -> dict:
-        """Scrapes job posting text and uses LLM extraction to get key details."""
         try:
             response = requests.get(url, headers={"User-Agent": self.user_agent})
             response.raise_for_status()
@@ -40,13 +39,16 @@ class JobPostingScraper:
         soup = BeautifulSoup(response.text, "html.parser")
         job_text = soup.get_text(separator="\n", strip=True)
         
-        # Use LLM to extract structured details with enforced JSON output
-        input_data = {"job_posting_text": job_text}
-        result = (self.extract_prompt | self.llm | self.json_parser).invoke(input=input_data)
-        return result  # Result is a dict with keys 'company', 'job_title', 'job_text'
+        try:
+            input_data = {"job_posting_text": job_text}
+            result = (self.extract_prompt | self.llm | self.json_parser).invoke(input=input_data)
+        except Exception as e:
+            # Fallback if extraction fails
+            return {"company": "Unknown_Company", "job_title": "Unknown", "job_text": "Job posting extraction failed."}
+        
+        return result  # dict with keys 'company', 'job_title', 'job_text'
 
     def capture_screenshot(self, url: str, output_path: str) -> None:
-        """Captures a full-page screenshot (including scrolling parts) of the URL using a headless browser."""
         chrome_options = Options()
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--disable-gpu")
@@ -55,11 +57,13 @@ class JobPostingScraper:
         try:
             driver.get(url)
             driver.implicitly_wait(5)
-            # Calculate full page dimensions
             total_width = driver.execute_script("return document.body.scrollWidth")
             total_height = driver.execute_script("return document.body.scrollHeight")
             driver.set_window_size(total_width, total_height)
             driver.implicitly_wait(2)
             driver.save_screenshot(output_path)
+        except Exception as e:
+            print(f"Screenshot capture failed: {e}")
+            # Optionally, you can create a placeholder image here
         finally:
             driver.quit()

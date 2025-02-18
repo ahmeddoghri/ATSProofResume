@@ -9,6 +9,7 @@ from langchain.prompts import PromptTemplate
 
 import re
 from docx.enum.text import WD_TAB_ALIGNMENT
+import shutil
 
 def append_ok_to_sentences_with_full_formatting(input_path, output_path):
     """
@@ -171,67 +172,74 @@ def rewrite_resume(input_path, job_description, output_path):
     Loads the resume from a DOCX file, sends its text along with the job posting
     to GPT‑3.5 via LangChain, and writes the revised resume to a new DOCX file.
     """
-    # Load resume text from the DOCX file
-    doc = Document(input_path)
-    resume_text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
+    try:
+        # Load resume text from the DOCX file
+        doc = Document(input_path)
+        resume_text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
 
-    # Define the prompt template with instructions for both required and optional sections.
-    prompt_template = (
-        "You are a career expert and resume optimization specialist. Your task is to rewrite the given resume so that it aligns perfectly with the job posting, increases keyword match for Applicant Tracking Systems (ATS), and maximizes the candidate's chance of securing an interview. The final resume must be concise, optimized for quick scanning, and no longer than two pages.\n\n"
-        "Please address the following resume sections and requirements. Note: Sections marked as REQUIRED must be present and optimized. For sections marked as OPTIONAL, do not add them if the original resume does not contain any information for that section.\n\n"
-        "1. **Contact Information** (REQUIRED):\n"
-        "   - Verify that the name, phone number, email address, and location (city and state) are clear and professional.\n\n"
-        "2. **Resume Summary/Objective** (REQUIRED):\n"
-        "   - Enhance the professional summary or objective to concisely reflect the candidate's strengths and career goals in relation to the job posting.\n\n"
-        "3. **Work Experience** (REQUIRED):\n"
-        "   - Assess the employment history and professional experience. Emphasize promotions, career progression, quantifiable achievements, and alignment with the job responsibilities.\n\n"
-        "4. **Education** (REQUIRED):\n"
-        "   - Summarize the academic background, including degrees and certifications, clearly and succinctly.\n\n"
-        "5. **Skills** (REQUIRED):\n"
-        "   - Highlight key skills relevant to the job. Update terminology if the job posting emphasizes specific technologies (e.g., replace GCP with AWS) and include adjacent or related skills mentioned in the posting.\n\n"
-        "6. **Certifications and Licenses** (OPTIONAL):\n"
-        "   - If present, list only those certifications and licenses that are directly relevant.\n\n"
-        "7. **Professional Affiliations** (OPTIONAL):\n"
-        "   - If present, mention memberships in professional organizations that enhance the candidate's profile.\n\n"
-        "8. **Volunteer Experience** (OPTIONAL):\n"
-        "   - If present, include any volunteer work that supports the candidate’s qualifications.\n\n"
-        "9. **Projects** (OPTIONAL):\n"
-        "   - If present, feature significant projects that demonstrate relevant skills and achievements.\n\n"
-        "10. **Publications or Presentations** (OPTIONAL):\n"
-        "    - If present, add any published works or presentations that contribute to the candidate’s professional image.\n\n"
-        "11. **Additional Information** (OPTIONAL):\n"
-        "    - If present, briefly include extra details such as languages spoken or interests relevant to the job.\n\n"
-        "Additional requirements:\n"
-        "- Ensure the final resume is concise and optimized for quick scanning, minimizing wordiness while retaining critical details.\n"
-        "- Clearly highlight any career promotions and progression in previous roles.\n"
-        "- Do not add any optional section if the original resume does not contain it.\n"
-        "- Replace or update keywords as needed: for example, if the job posting specifies AWS but the original resume mentions GCP, modify it to AWS and include related technologies from the posting.\n"
-        "- Output only the rewritten resume test without any additional text.\n"
-        "- Respect the same order of sections as the original resume.\n"
-        "- The final rewritten resume must fit within two pages.\n\n"
-        "Job Posting:\n{job_posting}\n\n"
-        "Original Resume:\n{resume_text}\n\n"
-        "Rewritten Resume:"
-    )
-    prompt = PromptTemplate(
-        template=prompt_template,
-        input_variables=["job_posting", "resume_text"]
-    )
+        # Define the prompt template with instructions for both required and optional sections.
+        prompt_template = (
+            "You are a career expert and resume optimization specialist. Your task is to rewrite the given resume so that it aligns perfectly with the job posting, increases keyword match for Applicant Tracking Systems (ATS), and maximizes the candidate's chance of securing an interview. The final resume must be concise, optimized for quick scanning, and no longer than two pages.\n\n"
+            "Please address the following resume sections and requirements. Note: Sections marked as REQUIRED must be present and optimized. For sections marked as OPTIONAL, do not add them if the original resume does not contain any information for that section.\n\n"
+            "1. **Contact Information** (REQUIRED):\n"
+            "   - Verify that the name, phone number, email address, and location (city and state) are clear and professional.\n\n"
+            "2. **Resume Summary/Objective** (REQUIRED):\n"
+            "   - Enhance the professional summary or objective to concisely reflect the candidate's strengths and career goals in relation to the job posting.\n\n"
+            "3. **Work Experience** (REQUIRED):\n"
+            "   - Assess the employment history and professional experience. Emphasize promotions, career progression, quantifiable achievements, and alignment with the job responsibilities.\n\n"
+            "4. **Education** (REQUIRED):\n"
+            "   - Summarize the academic background, including degrees and certifications, clearly and succinctly.\n\n"
+            "5. **Skills** (REQUIRED):\n"
+            "   - Highlight key skills relevant to the job. Update terminology if the job posting emphasizes specific technologies (e.g., replace GCP with AWS) and include adjacent or related skills mentioned in the posting.\n\n"
+            "6. **Certifications and Licenses** (OPTIONAL):\n"
+            "   - If present, list only those certifications and licenses that are directly relevant.\n\n"
+            "7. **Professional Affiliations** (OPTIONAL):\n"
+            "   - If present, mention memberships in professional organizations that enhance the candidate's profile.\n\n"
+            "8. **Volunteer Experience** (OPTIONAL):\n"
+            "   - If present, include any volunteer work that supports the candidate’s qualifications.\n\n"
+            "9. **Projects** (OPTIONAL):\n"
+            "   - If present, feature significant projects that demonstrate relevant skills and achievements.\n\n"
+            "10. **Publications or Presentations** (OPTIONAL):\n"
+            "    - If present, add any published works or presentations that contribute to the candidate’s professional image.\n\n"
+            "11. **Additional Information** (OPTIONAL):\n"
+            "    - If present, briefly include extra details such as languages spoken or interests relevant to the job.\n\n"
+            "Additional requirements:\n"
+            "- Ensure the final resume is concise and optimized for quick scanning, minimizing wordiness while retaining critical details.\n"
+            "- Clearly highlight any career promotions and progression in previous roles.\n"
+            "- Do not add any optional section if the original resume does not contain it.\n"
+            "- Replace or update keywords as needed: for example, if the job posting specifies AWS but the original resume mentions GCP, modify it to AWS and include related technologies from the posting.\n"
+            "- Output only the rewritten resume test without any additional text.\n"
+            "- Respect the same order of sections as the original resume.\n"
+            "- If the job posting does not directly align with the candidate’s background, reformat and optimize the resume by emphasizing transferable skills, key accomplishments, and overall strengths to create a more compelling presentation.\n"
+            "- The final rewritten resume must fit within two pages.\n\n"
+            "Job Posting:\n{job_posting}\n\n"
+            "Original Resume:\n{resume_text}\n\n"
+            "Rewritten Resume:"
+        )
+        prompt = PromptTemplate(
+            template=prompt_template,
+            input_variables=["job_posting", "resume_text"]
+        )
 
-    # Initialize the GPT‑3.5 chat model via LangChain using the updated import.
-    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.7)
+        # Initialize the GPT‑3.5 chat model via LangChain using the updated import.
+        llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.7)
 
-    # Create a runnable sequence using the pipe operator.
-    runnable = prompt | llm
+        # Create a runnable sequence using the pipe operator.
+        runnable = prompt | llm
 
-    # Instead of formatting the prompt manually, pass a mapping.
-    input_data = {"job_posting": job_description, "resume_text": resume_text}
-    result = runnable.invoke(input=input_data)
-    revised_resume_text = result.content  # Extract the revised text
+        # Instead of formatting the prompt manually, pass a mapping.
+        input_data = {"job_posting": job_description, "resume_text": resume_text}
+        result = runnable.invoke(input=input_data)
+        revised_resume_text = result.content  # Extract the revised text
 
-    # Now, call the new formatting function to get the final ATS-friendly resume text.
-    final_resume_text = format_resume_with_chatgpt(revised_resume_text)
+        # Now, call the new formatting function to get the final ATS-friendly resume text.
+        final_resume_text = format_resume_with_chatgpt(revised_resume_text)
 
-    # Generate the final DOCX document using the formatted text.
-    new_doc = reformat_resume_text_for_docx(final_resume_text)
-    new_doc.save(output_path)
+        # Generate the final DOCX document using the formatted text.
+        new_doc = reformat_resume_text_for_docx(final_resume_text)
+        new_doc.save(output_path)
+    except Exception as e:
+        # Log the error if needed
+        print(f"Resume rewriting failed: {e}. Falling back to original resume.")
+        # Fallback: copy the original file to the output
+        shutil.copy(input_path, output_path)

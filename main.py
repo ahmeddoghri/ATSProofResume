@@ -6,6 +6,7 @@ import zipfile
 from fastapi.templating import Jinja2Templates
 from job_scraper import JobPostingScraper  # Updated import
 from resume_processing import rewrite_resume  # remains unchanged
+from urllib.parse import urlparse
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -33,6 +34,11 @@ async def upload_resume(
     Uses JobPostingScraper to extract company, job title, and job text, and captures a screenshot.
     Then processes the resume with GPT‑3.5 rewriting and bundles all outputs.
     """
+    
+    parsed_url = urlparse(job_link)
+    if not (parsed_url.scheme and parsed_url.netloc):
+        return JSONResponse(status_code=400, content={"error": "Invalid job posting URL."})
+
     job_data = job_scraper.scrape_job_posting(job_link)
     company_name = job_data["company"].replace(" ", "_")
     if company_name == "Unknown_Company":
