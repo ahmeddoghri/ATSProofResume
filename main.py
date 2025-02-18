@@ -5,8 +5,10 @@ import shutil
 import zipfile
 from fastapi.templating import Jinja2Templates
 from job_scraper import JobPostingScraper  # Updated import
-from resume_processing import rewrite_resume  # remains unchanged
+from resume_processing import rewrite_resume, generate_recommendations
 from urllib.parse import urlparse
+from docx import Document
+
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -62,6 +64,15 @@ async def upload_resume(
     formatted_resume_path = os.path.join(company_dir, "formatted_resume.docx")
     rewrite_resume(resume_path, job_data.get("job_text", ""), formatted_resume_path)
 
+    doc = Document(formatted_resume_path)
+    original_resume_text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
+
+    # Generate recommendations based on the job posting and original resume text
+    recommendations_text = generate_recommendations(job_data.get("job_text", ""), original_resume_text)
+    recommendations_path = os.path.join(company_dir, "recommendations.txt")
+    with open(recommendations_path, "w", encoding="utf-8") as f:
+        f.write(recommendations_text)
+
     zip_filename = f"{company_name}_{job_title}.zip"
     zip_filepath = os.path.join(OUTPUT_DIR, zip_filename)
     with zipfile.ZipFile(zip_filepath, "w") as zipf:
@@ -69,6 +80,7 @@ async def upload_resume(
         zipf.write(screenshot_path, os.path.basename(screenshot_path))
         zipf.write(resume_path, os.path.basename(resume_path))
         zipf.write(formatted_resume_path, os.path.basename(formatted_resume_path))
+        zipf.write(recommendations_path, os.path.basename(recommendations_path))
 
     return JSONResponse(content={"redirect_url": f"/result?download_url=/download/{zip_filename}"})
 

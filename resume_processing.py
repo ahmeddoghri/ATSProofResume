@@ -243,3 +243,28 @@ def rewrite_resume(input_path, job_description, output_path):
         print(f"Resume rewriting failed: {e}. Falling back to original resume.")
         # Fallback: copy the original file to the output
         shutil.copy(input_path, output_path)
+        
+        
+def generate_recommendations(job_posting: str, resume_text: str) -> str:
+    """
+    Uses GPT‑3.5 to generate bullet point recommendations for improving the resume,
+    such as highlighting missed keywords and skills to enhance the application.
+    Each recommendation should start with a dash (-).
+    """
+    prompt_template = (
+        "You are a career advisor. Based on the following job posting and resume, "
+        "generate a list of bullet point recommendations to improve the resume. "
+        "Include suggestions for missed keywords, skills to emphasize, and actionable improvements to maximize callback chances.\n\n"
+        "Job Posting:\n{job_posting}\n\n"
+        "Resume:\n{resume_text}\n\n"
+        "Recommendations (each starting with a dash '-'):"
+    )
+    prompt = PromptTemplate(
+        template=prompt_template,
+        input_variables=["job_posting", "resume_text"]
+    )
+    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.7)
+    runnable = prompt | llm
+    input_data = {"job_posting": job_posting, "resume_text": resume_text}
+    result = runnable.invoke(input=input_data)
+    return result.content
