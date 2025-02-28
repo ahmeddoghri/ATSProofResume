@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, Request, WebSocket, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, Form, Request, WebSocket, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 import os
@@ -10,8 +10,9 @@ from urllib.parse import urlparse
 from docx import Document
 from job_scraper import JobPostingScraper  # Updated import
 from resume_processing import rewrite_resume, generate_recommendations
+import re
 
-app = FastAPI()
+app = FastAPI() 
 templates = Jinja2Templates(directory="templates")
 OUTPUT_DIR = "output"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -47,18 +48,16 @@ def process_resume_job(job_id: str, job_data: dict, resume_path: str, company_di
     try:
         progress_status[job_id] = 10
         
-        # (Job data was scraped in the upload step.)
         progress_status[job_id] = 30
         
-        # (Assume job posting text and screenshot were already saved.)
         progress_status[job_id] = 50
         
-        # Step 1: Rewrite the resume.
+        # Step 1: Rewrite the resume
         formatted_resume_path = os.path.join(company_dir, "formatted_resume.docx")
         rewrite_resume(resume_path, job_data.get("job_text", ""), formatted_resume_path)
         progress_status[job_id] = 70
         
-        # Step 2: Generate recommendations based on the job posting and original resume.
+        # Step 2: Generate recommendations
         recommendations_text = generate_recommendations(
             job_data.get("job_text", ""), 
             _extract_text_from_docx(resume_path)
@@ -68,22 +67,31 @@ def process_resume_job(job_id: str, job_data: dict, resume_path: str, company_di
             f.write(recommendations_text)
         progress_status[job_id] = 85
         
-        # Step 3: Bundle all outputs into a ZIP file.
-        job_title = job_data.get("job_title", "Job_Description").replace(" ", "_")[:50]
-        zip_filename = f"{os.path.basename(company_dir)}_{job_title}.zip"
+        # Step 3: Bundle all outputs into a ZIP file
+        job_title = sanitize_filename(job_data.get("job_title", "Job_Description"))[:50]
+        company_name = sanitize_filename(job_data.get("company", "Unknown_Company"))
+        zip_filename = f"{company_name}_{job_title}.zip"
         zip_filepath = os.path.join(OUTPUT_DIR, zip_filename)
+        
         with zipfile.ZipFile(zip_filepath, "w") as zipf:
-            job_posting_path = os.path.join(company_dir, f"{job_title}.txt")
-            screenshot_path = os.path.join(company_dir, "job_screenshot.png")
-            zipf.write(job_posting_path, os.path.basename(job_posting_path))
-            zipf.write(screenshot_path, os.path.basename(screenshot_path))
-            zipf.write(resume_path, os.path.basename(resume_path))
-            zipf.write(formatted_resume_path, os.path.basename(formatted_resume_path))
-            zipf.write(recommendations_path, os.path.basename(recommendations_path))
+            # Add all files to the ZIP
+            files_to_zip = {
+                "job_posting.txt": os.path.join(company_dir, f"{job_title}.txt"),
+                "job_screenshot.png": os.path.join(company_dir, "job_screenshot.png"),
+                "original_resume.docx": resume_path,
+                "formatted_resume.docx": formatted_resume_path,
+                "recommendations.txt": recommendations_path
+            }
+            
+            for arc_name, file_path in files_to_zip.items():
+                if os.path.exists(file_path):
+                    zipf.write(file_path, arc_name)
+                
         progress_status[job_id] = 100
+        
     except Exception as e:
         print(f"Error processing job {job_id}: {e}")
-        progress_status[job_id] = 100
+        progress_status[job_id] = -1  # Indicate error
 
 @app.get("/", response_class=HTMLResponse)
 async def landing_page(request: Request):
@@ -92,6 +100,17 @@ async def landing_page(request: Request):
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return FileResponse(os.path.join("static", "favicon.ico"))
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize filename by removing or replacing invalid characters.
+    """
+    # Replace commas, spaces and other special chars with underscores
+    sanitized = re.sub(r'[,\s]+', '_', filename)
+    # Remove any other non-alphanumeric characters except underscores and dots
+    sanitized = re.sub(r'[^\w\-\.]', '', sanitized)
+    # Ensure the filename doesn't exceed a reasonable length
+    return sanitized[:100]
 
 @app.post("/upload_resume/")
 async def upload_resume(
@@ -103,28 +122,29 @@ async def upload_resume(
     """
     Validates the job posting URL, saves the resume and job posting data,
     and schedules a background task to process the resume.
-    Returns a unique job_id and a redirect URL to the result page,
-    where the user can choose to download the processed resume or try again.
     """
     # Validate job posting URL
     parsed_url = urlparse(job_link)
     if not (parsed_url.scheme and parsed_url.netloc):
         return JSONResponse(status_code=400, content={"error": "Invalid job posting URL."})
     
-    # Generate a unique job ID for progress tracking.
+    # Generate a unique job ID for progress tracking
     job_id = str(uuid.uuid4())
     
-    # Scrape job posting details.
+    # Scrape job posting details
     job_data = job_scraper.scrape_job_posting(job_link)
-    company_name = job_data["company"].replace(" ", "_")
+    
+    # Sanitize company name and job title for file paths
+    company_name = sanitize_filename(job_data["company"])
     if company_name == "Unknown_Company":
         company_name = "Generic_Company"
+    
+    job_title = sanitize_filename(job_data.get("job_title", "Job_Description"))[:50]
     
     company_dir = os.path.join(OUTPUT_DIR, company_name)
     os.makedirs(company_dir, exist_ok=True)
     
     # Save job posting text.
-    job_title = job_data.get("job_title", "Job_Description").replace(" ", "_")[:50]
     job_posting_path = os.path.join(company_dir, f"{job_title}.txt")
     with open(job_posting_path, "w", encoding="utf-8") as f:
         f.write(job_data.get("job_text", ""))
@@ -138,19 +158,48 @@ async def upload_resume(
     with open(resume_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     
-    # Schedule background processing.
+    # Create zip filename with sanitized components
+    zip_filename = f"{company_name}_{job_title}.zip"
+    
+    # Schedule background processing
     background_tasks.add_task(process_resume_job, job_id, job_data, resume_path, company_dir)
     
-    # Construct a redirect URL to the result page.
-    redirect_url = f"/result?download_url=/download/{company_name}_{job_title}.zip"
-    
-    return JSONResponse(content={"redirect_url": redirect_url, "job_id": job_id})
+    # Return both the job ID and download URL
+    return JSONResponse(content={
+        "redirect_url": f"/result?job_id={job_id}&download_url=/download/{zip_filename}",
+        "job_id": job_id
+    })
 
 @app.get("/result", response_class=HTMLResponse)
-async def result_page(request: Request, download_url: str):
-    return templates.TemplateResponse("result.html", {"request": request, "download_url": download_url})
+async def result_page(request: Request, job_id: str, download_url: str):
+    """Show result page with download link and progress status."""
+    return templates.TemplateResponse(
+        "result.html", 
+        {
+            "request": request, 
+            "download_url": download_url,
+            "job_id": job_id
+        }
+    )
+
+@app.get("/check_progress/{job_id}")
+async def check_progress(job_id: str):
+    """Check if the file processing is complete."""
+    progress = progress_status.get(job_id, 0)
+    return JSONResponse(content={"progress": progress})
 
 @app.get("/download/{zip_filename}")
 async def download_zip(zip_filename: str):
+    """Download the processed resume package."""
     zip_filepath = os.path.join(OUTPUT_DIR, zip_filename)
-    return FileResponse(zip_filepath, filename=zip_filename)
+    
+    # Wait for up to 30 seconds for the file to be created
+    for _ in range(30):
+        if os.path.exists(zip_filepath):
+            return FileResponse(zip_filepath, filename=zip_filename)
+        await asyncio.sleep(1)
+    
+    raise HTTPException(
+        status_code=404,
+        detail="File not found. Please ensure the file was generated successfully."
+    )
