@@ -19,11 +19,103 @@
       color: white;
       transition: width 0.25s ease-in-out; /* Smooth CSS transition */
     }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="file"],
+    .form-group select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    
+    .form-group input[type="range"] {
+      width: 100%;
+    }
+    
+    .temperature-value {
+      text-align: center;
+      margin-top: 5px;
+    }
+    
+    .api-key-info {
+      font-size: 0.9em;
+      color: #666;
+      margin-top: 5px;
+    }
+    
+    .form-group select option {
+      padding: 8px;
+    }
+    
+    .form-group select option:checked {
+      background-color: #e8f0fe;
+    }
+    
+    /* Style for the recommended option */
+    .form-group select option[selected] {
+      font-weight: bold;
+      background-color: #e8f0fe;
+    }
+    
+    .model-option {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px;
+    }
+    
+    .model-name {
+        font-weight: bold;
+    }
+    
+    .model-provider {
+        color: #666;
+        font-size: 0.9em;
+    }
+    
+    .model-category {
+        color: #0066cc;
+        font-size: 0.8em;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background-color: #e8f0fe;
+    }
+    
+    optgroup {
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .model-description {
+        color: #666;
+        font-size: 0.8em;
+        font-style: italic;
+        margin-top: 2px;
+    }
   </style>
   <script>
+    // Update temperature display
+    function updateTemperature(value) {
+      document.getElementById('temperature-value').textContent = value;
+    }
+    
     function handleFormSubmit(event) {
       event.preventDefault(); // Prevent default form submission
       var formData = new FormData(event.target);
+
+      // Convert temperature to float
+      formData.set('temperature', parseFloat(formData.get('temperature')));
 
       // Hide the form and show the progress bar
       document.getElementById('form-container').style.display = 'none';
@@ -90,6 +182,50 @@
         }
       }, 25); // Update every 25ms for the initial auto-increment
     }
+
+    // Update the loadAvailableModels function
+    async function loadAvailableModels() {
+        try {
+            const response = await fetch('/available_models');
+            const data = await response.json();
+            const modelSelect = document.getElementById('model');
+            modelSelect.innerHTML = ''; // Clear existing options
+            
+            // Create category groups
+            const categories = [...new Set(data.models.map(model => model.category))];
+            
+            categories.forEach(category => {
+                const group = document.createElement('optgroup');
+                group.label = category;
+                
+                // Filter models for this category
+                const categoryModels = data.models.filter(model => model.category === category);
+                
+                categoryModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.id;
+                    option.text = `${model.name}${model.recommended ? ' (Recommended)' : ''} - ${model.description}`;
+                    
+                    if (model.recommended) {
+                        option.selected = true;
+                    }
+                    group.appendChild(option);
+                });
+                
+                modelSelect.appendChild(group);
+            });
+        } catch (error) {
+            console.error('Error loading models:', error);
+            // Add a basic fallback option
+            modelSelect.innerHTML = `
+                <option value="gpt-4-turbo-preview">GPT-4 Turbo (Recommended) - Latest GPT-4 model</option>
+                <option value="gpt-3.5-turbo">GPT-3.5 - Fast and cost-effective</option>
+            `;
+        }
+    }
+
+    // Call this when the page loads
+    document.addEventListener('DOMContentLoaded', loadAvailableModels);
   </script>
 </head>
 <body>
@@ -97,11 +233,60 @@
   
   <div id="form-container">
     <form onsubmit="handleFormSubmit(event)" enctype="multipart/form-data">
-      <label for="file">Resume (.docx):</label>
-      <input type="file" name="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required><br><br>
-      
-      <label for="job_link">Job Posting URL:</label>
-      <input type="text" name="job_link" required><br><br>
+      <!-- AI Model Selection -->
+      <div class="form-group">
+        <label for="model">AI Model:</label>
+        <select name="model" id="model">
+          <option value="">Loading models...</option>
+        </select>
+      </div>
+
+      <!-- Temperature Control -->
+      <div class="form-group">
+        <label for="temperature">AI Creativity Level:</label>
+        <input 
+          type="range" 
+          name="temperature" 
+          id="temperature" 
+          min="0" 
+          max="1" 
+          step="0.1" 
+          value="0.7" 
+          oninput="updateTemperature(this.value)"
+        >
+        <div id="temperature-value" class="temperature-value">0.7</div>
+      </div>
+
+      <!-- API Key -->
+      <div class="form-group">
+        <label for="api_key">OpenAI API Key:</label>
+        <input 
+          type="text" 
+          name="api_key" 
+          id="api_key" 
+          value="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"
+        >
+        <div class="api-key-info">
+          Default key provided. You can use your own OpenAI API key if you have one.
+        </div>
+      </div>
+
+      <!-- Existing File Upload -->
+      <div class="form-group">
+        <label for="file">Resume (.docx):</label>
+        <input 
+          type="file" 
+          name="file" 
+          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+          required
+        >
+      </div>
+
+      <!-- Job Link -->
+      <div class="form-group">
+        <label for="job_link">Job Posting URL:</label>
+        <input type="text" name="job_link" required>
+      </div>
       
       <button type="submit">Submit</button>
     </form>
