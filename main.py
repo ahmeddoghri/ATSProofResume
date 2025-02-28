@@ -11,6 +11,8 @@ from docx import Document
 from job_scraper import JobPostingScraper  # Updated import
 from resume_processing import rewrite_resume, generate_recommendations
 import re
+from openai import OpenAI
+from typing import List
 
 app = FastAPI() 
 templates = Jinja2Templates(directory="templates")
@@ -37,30 +39,39 @@ def _extract_text_from_docx(docx_path: str) -> str:
     doc = Document(docx_path)
     return "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
 
-def process_resume_job(job_id: str, job_data: dict, resume_path: str, company_dir: str):
+def process_resume_job(
+    job_id: str, 
+    job_data: dict, 
+    resume_path: str, 
+    company_dir: str,
+    model: str,
+    temperature: float,
+    api_key: str
+):
     """
-    Background task that processes the resume:
-      - Rewrites the resume using GPT‑3.5.
-      - Generates recommendations.
-      - Bundles outputs into a ZIP file.
-    Updates the progress_status global at key milestones.
+    Background task that processes the resume with specified AI parameters.
     """
     try:
         progress_status[job_id] = 10
         
-        progress_status[job_id] = 30
-        
-        progress_status[job_id] = 50
-        
-        # Step 1: Rewrite the resume
+        # Pass AI parameters to the processing functions
         formatted_resume_path = os.path.join(company_dir, "formatted_resume.docx")
-        rewrite_resume(resume_path, job_data.get("job_text", ""), formatted_resume_path)
+        rewrite_resume(
+            resume_path, 
+            job_data.get("job_text", ""), 
+            formatted_resume_path,
+            model=model,
+            temperature=temperature,
+            api_key=api_key
+        )
         progress_status[job_id] = 70
         
-        # Step 2: Generate recommendations
         recommendations_text = generate_recommendations(
             job_data.get("job_text", ""), 
-            _extract_text_from_docx(resume_path)
+            _extract_text_from_docx(resume_path),
+            model=model,
+            temperature=temperature,
+            api_key=api_key
         )
         recommendations_path = os.path.join(company_dir, "recommendations.txt")
         with open(recommendations_path, "w", encoding="utf-8") as f:
@@ -117,7 +128,10 @@ async def upload_resume(
     request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    job_link: str = Form(...)
+    job_link: str = Form(...),
+    model: str = Form(...),
+    temperature: float = Form(...),
+    api_key: str = Form(...)
 ):
     """
     Validates the job posting URL, saves the resume and job posting data,
@@ -162,7 +176,16 @@ async def upload_resume(
     zip_filename = f"{company_name}_{job_title}.zip"
     
     # Schedule background processing
-    background_tasks.add_task(process_resume_job, job_id, job_data, resume_path, company_dir)
+    background_tasks.add_task(
+        process_resume_job, 
+        job_id, 
+        job_data, 
+        resume_path, 
+        company_dir,
+        model,
+        temperature,
+        api_key
+    )
     
     # Return both the job ID and download URL
     return JSONResponse(content={
@@ -203,3 +226,95 @@ async def download_zip(zip_filename: str):
         status_code=404,
         detail="File not found. Please ensure the file was generated successfully."
     )
+
+@app.get("/available_models")
+async def get_available_models():
+    """
+    Returns a curated list of primary OpenAI models.
+    """
+    try:
+        # Define main OpenAI model categories based on latest documentation
+        main_models = [
+            {
+                "id": "gpt-4.5-preview",
+                "name": "GPT-4.5 Preview",
+                "provider": "OpenAI",
+                "recommended": False,
+                "category": "Advanced",
+                "description": "Latest and most advanced GPT model"
+            },
+            {
+                "id": "gpt-4o",
+                "name": "GPT-4 Optimized",
+                "provider": "OpenAI",
+                "recommended": True,
+                "category": "Advanced",
+                "description": "Optimized version of GPT-4"
+            },
+            {
+                "id": "gpt-4o-mini",
+                "name": "GPT-4o Mini",
+                "provider": "OpenAI",
+                "recommended": False,
+                "category": "Advanced",
+                "description": "Lighter version of GPT-4 Optimized"
+            },
+            {
+                "id": "gpt-3.5-turbo-0125",
+                "name": "GPT-3.5 Turbo",
+                "provider": "OpenAI",
+                "recommended": False,
+                "category": "Standard",
+                "description": "Fast and cost-effective for simpler tasks"
+            }
+        ]
+
+        # Sort models by category and recommendation status
+        sorted_models = sorted(
+            main_models,
+            key=lambda x: (
+                not x["recommended"],  # Recommended models first
+                x["category"] != "Advanced",  # Advanced models first
+                x["name"]  # Alphabetical within same category
+            )
+        )
+        
+        return JSONResponse(content={"models": sorted_models})
+    except Exception as e:
+        print(f"Error organizing models: {e}")
+        # Fallback to basic models
+        default_models = [
+            {
+                "id": "gpt-4.5-preview",
+                "name": "GPT-4.5 Preview",
+                "provider": "OpenAI",
+                "recommended": False,
+                "category": "Advanced",
+                "description": "Latest and most advanced GPT model"
+            },
+            {
+                "id": "gpt-4o",
+                "name": "GPT-4 Optimized",
+                "provider": "OpenAI",
+                "recommended": True,
+                "category": "Advanced",
+                "description": "Optimized version of GPT-4"
+            },
+            {
+                "id": "gpt-4o-mini",
+                "name": "GPT-4o Mini",
+                "provider": "OpenAI",
+                "recommended": False,
+                "category": "Advanced",
+                "description": "Lighter version of GPT-4 Optimized"
+            },
+            {
+                "id": "gpt-3.5-turbo-0125",
+                "name": "GPT-3.5 Turbo",
+                "provider": "OpenAI",
+                "recommended": False,
+                "category": "Standard",
+                "description": "Fast and cost-effective for simpler tasks"
+            }
+        ]
+        return JSONResponse(content={"models": default_models})

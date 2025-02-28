@@ -167,10 +167,16 @@ def format_resume_with_chatgpt(resume_text):
 
 
 
-def rewrite_resume(input_path, job_description, output_path):
+def rewrite_resume(
+    input_path: str, 
+    job_description: str, 
+    output_path: str, 
+    model: str = "gpt-4-turbo-preview",
+    temperature: float = 0.7,
+    api_key: str = None
+):
     """
-    Loads the resume from a DOCX file, sends its text along with the job posting
-    to GPT‑3.5 via LangChain, and writes the revised resume to a new DOCX file.
+    Rewrites the resume using the specified OpenAI model and parameters.
     """
     try:
         # Load resume text from the DOCX file
@@ -196,11 +202,11 @@ def rewrite_resume(input_path, job_description, output_path):
             "7. **Professional Affiliations** (OPTIONAL):\n"
             "   - If present, mention memberships in professional organizations that enhance the candidate's profile.\n\n"
             "8. **Volunteer Experience** (OPTIONAL):\n"
-            "   - If present, include any volunteer work that supports the candidate’s qualifications.\n\n"
+            "   - If present, include any volunteer work that supports the candidate's qualifications.\n\n"
             "9. **Projects** (OPTIONAL):\n"
             "   - If present, feature significant projects that demonstrate relevant skills and achievements.\n\n"
             "10. **Publications or Presentations** (OPTIONAL):\n"
-            "    - If present, add any published works or presentations that contribute to the candidate’s professional image.\n\n"
+            "    - If present, add any published works or presentations that contribute to the candidate's professional image.\n\n"
             "11. **Additional Information** (OPTIONAL):\n"
             "    - If present, briefly include extra details such as languages spoken or interests relevant to the job.\n\n"
             "Additional requirements:\n"
@@ -210,7 +216,7 @@ def rewrite_resume(input_path, job_description, output_path):
             "- Replace or update keywords as needed: for example, if the job posting specifies AWS but the original resume mentions GCP, modify it to AWS and include related technologies from the posting.\n"
             "- Output only the rewritten resume test without any additional text.\n"
             "- Respect the same order of sections as the original resume.\n"
-            "- If the job posting does not directly align with the candidate’s background, reformat and optimize the resume by emphasizing transferable skills, key accomplishments, and overall strengths to create a more compelling presentation.\n"
+            "- If the job posting does not directly align with the candidate's background, reformat and optimize the resume by emphasizing transferable skills, key accomplishments, and overall strengths to create a more compelling presentation.\n"
             "- The final rewritten resume must fit within two pages.\n\n"
             "Job Posting:\n{job_posting}\n\n"
             "Original Resume:\n{resume_text}\n\n"
@@ -222,7 +228,11 @@ def rewrite_resume(input_path, job_description, output_path):
         )
 
         # Initialize the GPT‑3.5 chat model via LangChain using the updated import.
-        llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.7)
+        llm = ChatOpenAI(
+            model_name=model,
+            temperature=temperature,
+            openai_api_key=api_key
+        )
 
         # Create a runnable sequence using the pipe operator.
         runnable = prompt | llm
@@ -245,11 +255,15 @@ def rewrite_resume(input_path, job_description, output_path):
         shutil.copy(input_path, output_path)
         
         
-def generate_recommendations(job_posting: str, resume_text: str) -> str:
+def generate_recommendations(
+    job_posting: str, 
+    resume_text: str,
+    model: str = "gpt-4-turbo-preview",
+    temperature: float = 0.7,
+    api_key: str = None
+) -> str:
     """
-    Uses GPT‑3.5 to generate bullet point recommendations for improving the resume,
-    such as highlighting missed keywords and skills to enhance the application.
-    Each recommendation should start with a dash (-).
+    Generates recommendations using the specified OpenAI model and parameters.
     """
     prompt_template = (
         "You are a career advisor. Based on the following job posting and resume, "
@@ -263,7 +277,11 @@ def generate_recommendations(job_posting: str, resume_text: str) -> str:
         template=prompt_template,
         input_variables=["job_posting", "resume_text"]
     )
-    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.7)
+    llm = ChatOpenAI(
+        model_name=model,
+        temperature=temperature,
+        openai_api_key=api_key
+    )
     runnable = prompt | llm
     input_data = {"job_posting": job_posting, "resume_text": resume_text}
     result = runnable.invoke(input=input_data)
