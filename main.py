@@ -260,6 +260,14 @@ async def get_available_models():
                 "description": "Lighter version of GPT-4 Optimized"
             },
             {
+                "id": "gpt-4-turbo",
+                "name": "GPT-4 Turbo",
+                "provider": "OpenAI",
+                "recommended": False,
+                "category": "Advanced",
+                "description": "Older high intelligence GPT-4 Model"
+            },
+            {
                 "id": "gpt-3.5-turbo-0125",
                 "name": "GPT-3.5 Turbo",
                 "provider": "OpenAI",
@@ -307,6 +315,14 @@ async def get_available_models():
                 "recommended": False,
                 "category": "Advanced",
                 "description": "Lighter version of GPT-4 Optimized"
+            },
+            {
+                "id": "gpt-4-turbo",
+                "name": "GPT-4 Turbo",
+                "provider": "OpenAI",
+                "recommended": False,
+                "category": "Advanced",
+                "description": "Older high intelligence GPT-4 Model"
             },
             {
                 "id": "gpt-3.5-turbo-0125",
