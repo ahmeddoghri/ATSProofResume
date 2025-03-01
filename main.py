@@ -28,8 +28,6 @@ templates = Jinja2Templates(directory="templates")
 OUTPUT_DIR = "output"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-job_scraper = JobPostingScraper()
-
 # Global dictionary to store progress status keyed by job ID
 progress_status = {}
 
@@ -171,6 +169,13 @@ async def upload_resume(
     Validates the job posting URL, saves the resume and job posting data,
     and schedules a background task to process the resume.
     """
+    # Initialize job scraper with user-selected model
+    job_scraper = JobPostingScraper(
+        model_name=model,
+        temperature=temperature,
+        api_key=api_key
+    )
+    
     # Validate job posting URL
     parsed_url = urlparse(job_link)
     if not (parsed_url.scheme and parsed_url.netloc):
@@ -179,7 +184,7 @@ async def upload_resume(
     # Generate a unique job ID for progress tracking
     job_id = str(uuid.uuid4())
     
-    # Scrape job posting details
+    # Scrape job posting details with the configured model
     job_data = job_scraper.scrape_job_posting(job_link)
     
     # Sanitize company name and job title for file paths
@@ -264,50 +269,50 @@ async def download_zip(zip_filename: str):
 
 def get_fallback_models() -> List[Dict]:
     """
-    Returns a basic list of models as fallback.
+    Returns a basic list of chat-compatible models as fallback.
     """
     return [
-            {
-                "id": "gpt-4.5-preview",
-                "name": "GPT-4.5 Preview",
-                "provider": "OpenAI",
-                "recommended": False,
-                "category": "Advanced",
-                "description": "Latest and most advanced GPT model"
-            },
-            {
-                "id": "gpt-4o",
-                "name": "GPT-4 Optimized",
-                "provider": "OpenAI",
-                "recommended": True,
-                "category": "Advanced",
-                "description": "Optimized version of GPT-4"
-            },
-            {
-                "id": "gpt-4o-mini",
-                "name": "GPT-4o Mini",
-                "provider": "OpenAI",
-                "recommended": False,
-                "category": "Advanced",
-                "description": "Lighter version of GPT-4 Optimized"
-            },
-            {
-                "id": "gpt-4-turbo",
-                "name": "GPT-4 Turbo",
-                "provider": "OpenAI",
-                "recommended": False,
-                "category": "Advanced",
-                "description": "Older high intelligence GPT-4 Model"
-            },
-            {
-                "id": "gpt-3.5-turbo-0125",
-                "name": "GPT-3.5 Turbo",
-                "provider": "OpenAI",
-                "recommended": False,
-                "category": "Standard",
-                "description": "Fast and cost-effective for simpler tasks"
-            }
-        ]
+        {
+            "id": "gpt-4.5-preview",
+            "name": "gpt-4.5-preview",
+            "provider": "OpenAI",
+            "recommended": False,
+            "category": "Advanced",
+            "description": "Latest and most advanced GPT model"
+        },
+        {
+            "id": "gpt-4o",
+            "name": "gpt-4o",
+            "provider": "OpenAI",
+            "recommended": True,
+            "category": "Advanced",
+            "description": "Optimized version of GPT-4"
+        },
+        {
+            "id": "gpt-4o-mini",
+            "name": "gpt-4o-mini",
+            "provider": "OpenAI",
+            "recommended": False,
+            "category": "Advanced",
+            "description": "Lighter version of GPT-4 Optimized"
+        },
+        {
+            "id": "gpt-4-turbo",
+            "name": "gpt-4-turbo",
+            "provider": "OpenAI",
+            "recommended": False,
+            "category": "Advanced",
+            "description": "Older high intelligence GPT-4 Model"
+        },
+        {
+            "id": "gpt-3.5-turbo",
+            "name": "gpt-3.5-turbo",
+            "provider": "OpenAI",
+            "recommended": False,
+            "category": "Standard",
+            "description": "Fast and cost-effective for simpler tasks"
+        }
+    ]
 
 
 def get_model_description(model_id: str) -> str:
@@ -327,54 +332,151 @@ def get_model_description(model_id: str) -> str:
     
     return "OpenAI language model"
 
-# Cache the models for 1 hour to avoid frequent API calls
-@timed_cache(seconds=3600)  # Cache for 1 hour
+def get_friendly_model_name(model_id: str) -> str:
+    """
+    Returns the original model ID without modification.
+    This ensures we display exactly what the API returns.
+    """
+    return model_id
+
+# Add a function to clear the cache
+def clear_model_cache():
+    """Clear the model cache to force a refresh"""
+    fetch_openai_models.cache = {}  # Reset the cache dictionary
+
+# Update the excluded models list to be more comprehensive
+excluded_models = [
+    'whisper', 'dall-e', 'tts', 'text-embedding', 'audio',
+    'text-moderation', 'instruct', 'vision', 'realtime',
+    'preview-2024', 'preview-2023', '-1106', '-0125', '-0613',
+    '-16k', '-mini-realtime', '-realtime', '-audio'
+]
+
+# Update the fetch_openai_models function with stronger filtering
+@timed_cache(seconds=3600)
 async def fetch_openai_models(api_key: str) -> List[Dict]:
     """
-    Fetches available models from OpenAI and returns a filtered, formatted list.
+    Fetches available models from OpenAI and returns only chat-compatible models.
     """
     try:
         client = OpenAI(api_key=api_key)
         models = client.models.list()
         
-        # Filter for GPT models and format them
-        gpt_models = []
+        # List of known chat-compatible model prefixes
+        chat_model_prefixes = [
+            'gpt-4-', 'gpt-4o', 'gpt-3.5-turbo'
+        ]
+        
+        # Filter for chat models and format them
+        chat_models = []
+        seen_model_ids = set()  # Track models we've already added
+        
+        # First add our preferred models in the order we want
+        preferred_models = [
+            "gpt-4.5-preview",
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4-turbo",
+            "gpt-3.5-turbo"
+        ]
+        
+        # Add preferred models first if they exist in the API response
+        model_ids = [model.id for model in models.data]
+        for preferred_id in preferred_models:
+            matching_ids = [mid for mid in model_ids if preferred_id in mid and 
+                           not any(excluded in mid.lower() for excluded in excluded_models)]
+            if matching_ids:
+                # Use the most recent version if multiple matches
+                model_id = sorted(matching_ids)[-1]
+                
+                # Use simple descriptions based on model family
+                if "gpt-4.5" in model_id:
+                    description = "Latest and most advanced GPT model"
+                elif "gpt-4o" in model_id and "mini" in model_id:
+                    description = "Lighter version of GPT-4 Optimized"
+                elif "gpt-4o" in model_id:
+                    description = "Optimized version of GPT-4"
+                elif "gpt-4-turbo" in model_id:
+                    description = "Older high intelligence GPT-4 Model"
+                elif "gpt-3.5" in model_id:
+                    description = "Fast and cost-effective for simpler tasks"
+                else:
+                    description = "OpenAI language model"
+                
+                model_info = {
+                    "id": model_id,
+                    "name": model_id,  # Use the exact model ID
+                    "provider": "OpenAI",
+                    "recommended": "gpt-4o" in model_id and not "mini" in model_id,
+                    "category": "Advanced" if "gpt-4" in model_id else "Standard",
+                    "description": description
+                }
+                chat_models.append(model_info)
+                seen_model_ids.add(model_id)
+        
+        # Then add any remaining models - but be very selective
         for model in models.data:
             model_id = model.id
             
-            # Only include GPT models
-            if any(prefix in model_id for prefix in ['gpt-4', 'gpt-3.5']):
+            # Skip if we've already added this model
+            if model_id in seen_model_ids:
+                continue
+                
+            # Check if this is a chat model and doesn't contain any excluded terms
+            is_chat_model = any(model_id.startswith(prefix) for prefix in chat_model_prefixes)
+            is_excluded = any(excluded in model_id.lower() for excluded in excluded_models)
+            
+            # Only include base models without special capabilities or version numbers
+            if is_chat_model and not is_excluded:
+                # Skip models with date suffixes if we already have a similar model
+                base_model = model_id.split('-2023')[0].split('-2024')[0].split('-0')[0]
+                if any(base_model in seen_id for seen_id in seen_model_ids):
+                    continue
+                
+                # Simple description based on model family
+                if "gpt-4" in model_id:
+                    description = "GPT-4 model variant"
+                elif "gpt-3.5" in model_id:
+                    description = "GPT-3.5 model variant"
+                else:
+                    description = "OpenAI language model"
+                
                 model_info = {
                     "id": model_id,
-                    "name": model_id.replace('-', ' ').title(),
+                    "name": model_id,  # Use the exact model ID
                     "provider": "OpenAI",
-                    "recommended": "gpt-4" in model_id,
+                    "recommended": False,
                     "category": "Advanced" if "gpt-4" in model_id else "Standard",
-                    "description": get_model_description(model_id)
+                    "description": description
                 }
-                gpt_models.append(model_info)
+                chat_models.append(model_info)
+                seen_model_ids.add(model_id)
         
+        # If no chat models found, return fallback
+        if not chat_models:
+            return get_fallback_models()
+            
         return sorted(
-            gpt_models,
+            chat_models,
             key=lambda x: (
-                not x["recommended"],
-                x["category"] != "Advanced",
-                x["name"]
+                not x["recommended"],  # Recommended models first
+                x["category"] != "Advanced",  # Advanced models first
+                x["name"]  # Alphabetical within same category
             )
         )
     except Exception as e:
         print(f"Error fetching OpenAI models: {e}")
         return get_fallback_models()
 
-
-
 @app.get("/available_models")
-async def get_available_models(api_key: str = None):
+async def get_available_models(api_key: str = None, force_refresh: bool = False):
     """
     Returns available OpenAI models with caching.
     If no API key is provided or there's an error, returns fallback models.
     """
     try:
+        if force_refresh:
+            clear_model_cache()
         if not api_key:
             return JSONResponse(content={"models": get_fallback_models()})
             

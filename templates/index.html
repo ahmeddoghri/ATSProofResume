@@ -103,6 +103,19 @@
         font-style: italic;
         margin-top: 2px;
     }
+    
+    .refresh-button {
+      margin-left: 10px;
+      padding: 4px 8px;
+      background-color: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    .refresh-button:hover {
+      background-color: #e0e0e0;
+    }
   </style>
   <script>
     // Add these functions at the start of your script section
@@ -193,7 +206,7 @@
     }
 
     // Update the loadAvailableModels function
-    async function loadAvailableModels() {
+    async function loadAvailableModels(forceRefresh = false) {
         const modelSelect = document.getElementById('model');
         const apiKey = getStoredApiKey();
         
@@ -201,7 +214,11 @@
             // Show loading state
             modelSelect.innerHTML = '<option value="" disabled selected>Loading models...</option>';
             
-            const response = await fetch('/available_models?api_key=' + encodeURIComponent(apiKey));
+            const url = forceRefresh 
+                ? `/available_models?api_key=${encodeURIComponent(apiKey)}&force_refresh=true`
+                : `/available_models?api_key=${encodeURIComponent(apiKey)}`;
+            
+            const response = await fetch(url);
             if (!response.ok) {
                 throw new Error('Failed to fetch models');
             }
@@ -280,6 +297,12 @@
             timeout = setTimeout(later, wait);
         };
     }
+
+    // Add this to your existing JavaScript
+    document.getElementById('refresh-models').addEventListener('click', () => {
+      const apiKey = document.getElementById('api_key').value;
+      loadAvailableModels(true); // Pass true to force refresh
+    });
   </script>
 </head>
 <body>
@@ -293,6 +316,7 @@
         <select name="model" id="model">
           <option value="">Loading models...</option>
         </select>
+        <button type="button" id="refresh-models" class="refresh-button">↻ Refresh Models</button>
       </div>
 
       <!-- Temperature Control -->
