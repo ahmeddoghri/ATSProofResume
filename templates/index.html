@@ -105,6 +105,15 @@
     }
   </style>
   <script>
+    // Add these functions at the start of your script section
+    function saveApiKey(apiKey) {
+        localStorage.setItem('openai_api_key', apiKey);
+    }
+
+    function getStoredApiKey() {
+        return localStorage.getItem('openai_api_key') || document.getElementById('api_key').value;
+    }
+
     // Update temperature display
     function updateTemperature(value) {
       document.getElementById('temperature-value').textContent = value;
@@ -185,11 +194,24 @@
 
     // Update the loadAvailableModels function
     async function loadAvailableModels() {
+        const modelSelect = document.getElementById('model');
+        const apiKey = getStoredApiKey();
+        
         try {
-            const response = await fetch('/available_models');
+            // Show loading state
+            modelSelect.innerHTML = '<option value="" disabled selected>Loading models...</option>';
+            
+            const response = await fetch('/available_models?api_key=' + encodeURIComponent(apiKey));
+            if (!response.ok) {
+                throw new Error('Failed to fetch models');
+            }
+            
             const data = await response.json();
-            const modelSelect = document.getElementById('model');
-            modelSelect.innerHTML = ''; // Clear existing options
+            modelSelect.innerHTML = ''; // Clear loading state
+            
+            if (!data.models || data.models.length === 0) {
+                throw new Error('No models available');
+            }
             
             // Create category groups
             const categories = [...new Set(data.models.map(model => model.category))];
@@ -216,16 +238,48 @@
             });
         } catch (error) {
             console.error('Error loading models:', error);
-            // Add a basic fallback option
+            // Use fallback options with the stored models
             modelSelect.innerHTML = `
-                <option value="gpt-4-turbo-preview">GPT-4 Turbo (Recommended) - Latest GPT-4 model</option>
-                <option value="gpt-3.5-turbo">GPT-3.5 - Fast and cost-effective</option>
+                <optgroup label="Advanced">
+                    <option value="gpt-4.5-preview" selected>GPT-4.5 Preview (Recommended) - Latest and most advanced GPT model</option>
+                    <option value="gpt-4o">GPT-4 Optimized - Optimized version of GPT-4</option>
+                    <option value="gpt-4o-mini">GPT-4o Mini - Lighter version of GPT-4 Optimized</option>
+                </optgroup>
+                <optgroup label="Standard">
+                    <option value="gpt-3.5-turbo-0125">GPT-3.5 Turbo - Fast and cost-effective for simpler tasks</option>
+                </optgroup>
             `;
         }
     }
 
-    // Call this when the page loads
-    document.addEventListener('DOMContentLoaded', loadAvailableModels);
+    // Initialize when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        // Set the API key input value from storage if it exists
+        const storedApiKey = getStoredApiKey();
+        document.getElementById('api_key').value = storedApiKey;
+        
+        // Load models immediately
+        loadAvailableModels();
+        
+        // Save API key when it changes and reload models
+        document.getElementById('api_key').addEventListener('input', debounce((e) => {
+            saveApiKey(e.target.value);
+            loadAvailableModels();
+        }, 500));
+    });
+
+    // Debounce function to prevent too many API calls
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
   </script>
 </head>
 <body>

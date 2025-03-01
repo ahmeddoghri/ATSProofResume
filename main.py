@@ -14,6 +14,15 @@ import re
 from openai import OpenAI
 from typing import List
 
+from openai import OpenAI
+from typing import List, Dict
+from functools import lru_cache
+import asyncio
+from datetime import datetime, timedelta
+from functools import wraps
+import time
+
+
 app = FastAPI() 
 templates = Jinja2Templates(directory="templates")
 OUTPUT_DIR = "output"
@@ -23,6 +32,31 @@ job_scraper = JobPostingScraper()
 
 # Global dictionary to store progress status keyed by job ID
 progress_status = {}
+
+
+
+def timed_cache(seconds: int):
+    def wrapper_decorator(func):
+        cache = {}
+        
+        async def wrapped_func(*args, **kwargs):
+            key = str(args) + str(kwargs)
+            now = time.time()
+            
+            if key in cache:
+                result, timestamp = cache[key]
+                if now - timestamp < seconds:
+                    return result
+                
+            # Get new result
+            result = await func(*args, **kwargs)
+            cache[key] = (result, now)
+            return result
+            
+        return wrapped_func
+    return wrapper_decorator
+
+
 
 @app.websocket("/ws/progress/{job_id}")
 async def websocket_progress(websocket: WebSocket, job_id: str):
@@ -227,14 +261,12 @@ async def download_zip(zip_filename: str):
         detail="File not found. Please ensure the file was generated successfully."
     )
 
-@app.get("/available_models")
-async def get_available_models():
+
+def get_fallback_models() -> List[Dict]:
     """
-    Returns a curated list of primary OpenAI models.
+    Returns a basic list of models as fallback.
     """
-    try:
-        # Define main OpenAI model categories based on latest documentation
-        main_models = [
+    return [
             {
                 "id": "gpt-4.5-preview",
                 "name": "GPT-4.5 Preview",
@@ -277,60 +309,79 @@ async def get_available_models():
             }
         ]
 
-        # Sort models by category and recommendation status
-        sorted_models = sorted(
-            main_models,
+
+def get_model_description(model_id: str) -> str:
+    """
+    Returns a description based on the model ID.
+    """
+    descriptions = {
+        "gpt-4": "Most capable GPT-4 model for complex tasks",
+        "gpt-4-turbo": "Optimized GPT-4 model for faster response times",
+        "gpt-3.5-turbo": "Fast and cost-effective for most tasks",
+    }
+    
+    # Find the matching description based on partial model ID
+    for key, desc in descriptions.items():
+        if key in model_id:
+            return desc
+    
+    return "OpenAI language model"
+
+# Cache the models for 1 hour to avoid frequent API calls
+@timed_cache(seconds=3600)  # Cache for 1 hour
+async def fetch_openai_models(api_key: str) -> List[Dict]:
+    """
+    Fetches available models from OpenAI and returns a filtered, formatted list.
+    """
+    try:
+        client = OpenAI(api_key=api_key)
+        models = client.models.list()
+        
+        # Filter for GPT models and format them
+        gpt_models = []
+        for model in models.data:
+            model_id = model.id
+            
+            # Only include GPT models
+            if any(prefix in model_id for prefix in ['gpt-4', 'gpt-3.5']):
+                model_info = {
+                    "id": model_id,
+                    "name": model_id.replace('-', ' ').title(),
+                    "provider": "OpenAI",
+                    "recommended": "gpt-4" in model_id,
+                    "category": "Advanced" if "gpt-4" in model_id else "Standard",
+                    "description": get_model_description(model_id)
+                }
+                gpt_models.append(model_info)
+        
+        return sorted(
+            gpt_models,
             key=lambda x: (
-                not x["recommended"],  # Recommended models first
-                x["category"] != "Advanced",  # Advanced models first
-                x["name"]  # Alphabetical within same category
+                not x["recommended"],
+                x["category"] != "Advanced",
+                x["name"]
             )
         )
-        
-        return JSONResponse(content={"models": sorted_models})
     except Exception as e:
-        print(f"Error organizing models: {e}")
-        # Fallback to basic models
-        default_models = [
-            {
-                "id": "gpt-4.5-preview",
-                "name": "GPT-4.5 Preview",
-                "provider": "OpenAI",
-                "recommended": False,
-                "category": "Advanced",
-                "description": "Latest and most advanced GPT model"
-            },
-            {
-                "id": "gpt-4o",
-                "name": "GPT-4 Optimized",
-                "provider": "OpenAI",
-                "recommended": True,
-                "category": "Advanced",
-                "description": "Optimized version of GPT-4"
-            },
-            {
-                "id": "gpt-4o-mini",
-                "name": "GPT-4o Mini",
-                "provider": "OpenAI",
-                "recommended": False,
-                "category": "Advanced",
-                "description": "Lighter version of GPT-4 Optimized"
-            },
-            {
-                "id": "gpt-4-turbo",
-                "name": "GPT-4 Turbo",
-                "provider": "OpenAI",
-                "recommended": False,
-                "category": "Advanced",
-                "description": "Older high intelligence GPT-4 Model"
-            },
-            {
-                "id": "gpt-3.5-turbo-0125",
-                "name": "GPT-3.5 Turbo",
-                "provider": "OpenAI",
-                "recommended": False,
-                "category": "Standard",
-                "description": "Fast and cost-effective for simpler tasks"
-            }
-        ]
-        return JSONResponse(content={"models": default_models})
+        print(f"Error fetching OpenAI models: {e}")
+        return get_fallback_models()
+
+
+
+@app.get("/available_models")
+async def get_available_models(api_key: str = None):
+    """
+    Returns available OpenAI models with caching.
+    If no API key is provided or there's an error, returns fallback models.
+    """
+    try:
+        if not api_key:
+            return JSONResponse(content={"models": get_fallback_models()})
+            
+        models = await fetch_openai_models(api_key)
+        return JSONResponse(content={"models": models})
+        
+    except Exception as e:
+        print(f"Error in get_available_models: {e}")
+        return JSONResponse(content={"models": get_fallback_models()})
+    
