@@ -267,50 +267,43 @@ async def download_zip(zip_filename: str):
     )
 
 
-def get_fallback_models() -> List[Dict]:
-    """
-    Returns a basic list of chat-compatible models as fallback.
-    """
+def get_fallback_models():
+    """Returns a list of fallback models if API key is not provided or there's an error."""
     return [
         {
-            "id": "gpt-4.5-preview",
-            "name": "gpt-4.5-preview",
-            "provider": "OpenAI",
-            "recommended": False,
-            "category": "Advanced",
-            "description": "Latest and most advanced GPT model"
+            "id": "o1-mini",
+            "name": "O1-Mini",
+            "description": "Efficient reasoning model for most tasks",
+            "category": "Reasoning",
+            "recommended": True  # Set as recommended/default
+        },
+        {
+            "id": "o1-preview",
+            "name": "O1 Preview",
+            "description": "Advanced reasoning model with step-by-step thinking",
+            "category": "Reasoning",
+            "recommended": False
+        },
+        {
+            "id": "o1",
+            "name": "O1",
+            "description": "Full reasoning model for complex tasks",
+            "category": "Reasoning",
+            "recommended": False
+        },
+        {
+            "id": "o3-mini",
+            "name": "O3-Mini",
+            "description": "Compact reasoning model with strong capabilities",
+            "category": "Reasoning",
+            "recommended": False
         },
         {
             "id": "gpt-4o",
-            "name": "gpt-4o",
-            "provider": "OpenAI",
-            "recommended": True,
+            "name": "GPT-4o",
+            "description": "Latest and most advanced GPT model",
             "category": "Advanced",
-            "description": "Optimized version of GPT-4"
-        },
-        {
-            "id": "gpt-4o-mini",
-            "name": "gpt-4o-mini",
-            "provider": "OpenAI",
-            "recommended": False,
-            "category": "Advanced",
-            "description": "Lighter version of GPT-4 Optimized"
-        },
-        {
-            "id": "gpt-4-turbo",
-            "name": "gpt-4-turbo",
-            "provider": "OpenAI",
-            "recommended": False,
-            "category": "Advanced",
-            "description": "Older high intelligence GPT-4 Model"
-        },
-        {
-            "id": "gpt-3.5-turbo",
-            "name": "gpt-3.5-turbo",
-            "provider": "OpenAI",
-            "recommended": False,
-            "category": "Standard",
-            "description": "Fast and cost-effective for simpler tasks"
+            "recommended": False  # No longer the default
         }
     ]
 
@@ -344,7 +337,7 @@ def clear_model_cache():
     """Clear the model cache to force a refresh"""
     fetch_openai_models.cache = {}  # Reset the cache dictionary
 
-# Update the excluded models list to be more comprehensive
+# Update the excluded_models list to ensure reasoning models aren't filtered out
 excluded_models = [
     'whisper', 'dall-e', 'tts', 'text-embedding', 'audio',
     'text-moderation', 'instruct', 'vision', 'realtime',
@@ -371,13 +364,17 @@ async def fetch_openai_models(api_key: str) -> List[Dict]:
         chat_models = []
         seen_model_ids = set()  # Track models we've already added
         
-        # First add our preferred models in the order we want
+        # Update the preferred_models list to include all reasoning models
         preferred_models = [
-            "gpt-4.5-preview",
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-4-turbo",
-            "gpt-3.5-turbo"
+            'o1-mini',      # Default reasoning model
+            'o1-preview',   # Advanced reasoning model
+            'o1',           # Full reasoning model
+            'o3-mini',      # Compact reasoning model
+            'gpt-4o',       # Advanced GPT model
+            'gpt-4-turbo',  # High-performance GPT model
+            'gpt-4o-mini',  # Compact GPT-4 model
+            'gpt-4',        # Standard GPT-4 model
+            'gpt-3.5-turbo' # Fast GPT model
         ]
         
         # Add preferred models first if they exist in the API response
@@ -390,7 +387,17 @@ async def fetch_openai_models(api_key: str) -> List[Dict]:
                 model_id = sorted(matching_ids)[-1]
                 
                 # Use simple descriptions based on model family
-                if "gpt-4.5" in model_id:
+                if "o1-mini" in model_id:
+                    description = "Efficient reasoning model for most tasks"
+                elif "o1-preview" in model_id:
+                    description = "Advanced reasoning model with step-by-step thinking"
+                elif "o1" in model_id:
+                    description = "Full reasoning model for complex tasks"
+                elif "o3-mini" in model_id:
+                    description = "Compact reasoning model with strong capabilities"
+                elif "o3" in model_id:
+                    description = "Powerful reasoning model for complex tasks"
+                elif "gpt-4.5" in model_id:
                     description = "Latest and most advanced GPT model"
                 elif "gpt-4o" in model_id and "mini" in model_id:
                     description = "Lighter version of GPT-4 Optimized"
@@ -407,8 +414,8 @@ async def fetch_openai_models(api_key: str) -> List[Dict]:
                     "id": model_id,
                     "name": model_id,  # Use the exact model ID
                     "provider": "OpenAI",
-                    "recommended": "gpt-4o" in model_id and not "mini" in model_id,
-                    "category": "Advanced" if "gpt-4" in model_id else "Standard",
+                    "recommended": "o1-mini" in model_id,  # Set o1-mini as recommended
+                    "category": get_model_category(model_id),
                     "description": description
                 }
                 chat_models.append(model_info)
@@ -446,7 +453,7 @@ async def fetch_openai_models(api_key: str) -> List[Dict]:
                     "name": model_id,  # Use the exact model ID
                     "provider": "OpenAI",
                     "recommended": False,
-                    "category": "Advanced" if "gpt-4" in model_id else "Standard",
+                    "category": get_model_category(model_id),
                     "description": description
                 }
                 chat_models.append(model_info)
@@ -486,4 +493,17 @@ async def get_available_models(api_key: str = None, force_refresh: bool = False)
     except Exception as e:
         print(f"Error in get_available_models: {e}")
         return JSONResponse(content={"models": get_fallback_models()})
+    
+
+def get_model_category(model_id):
+    """Categorizes models into different groups for UI display"""
+    if model_id.startswith('o1') or model_id.startswith('o3'):
+        return "Reasoning"  
+    elif any(model_id.startswith(prefix) for prefix in ['gpt-4-', 'gpt-4o']):
+        return "Advanced"
+    elif model_id.startswith('gpt-3.5'):
+        return "Standard"
+    else:
+        return "Other"
+
     

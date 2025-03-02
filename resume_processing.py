@@ -10,6 +10,8 @@ from langchain.prompts import PromptTemplate
 import re
 from docx.enum.text import WD_TAB_ALIGNMENT
 import shutil
+from openai import OpenAI
+import os
 
 def append_ok_to_sentences_with_full_formatting(input_path, output_path):
     """
@@ -160,7 +162,7 @@ def format_resume_with_chatgpt(resume_text):
         template=format_prompt_template,
         input_variables=["resume_text"]
     )
-    formatter = format_prompt | ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.7)
+    formatter = format_prompt | ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.1)
     input_data = {"resume_text": resume_text}
     formatted_result = formatter.invoke(input=input_data)
     return formatted_result.content
@@ -168,121 +170,412 @@ def format_resume_with_chatgpt(resume_text):
 
 
 def rewrite_resume(
-    input_path: str, 
+    resume_path: str, 
     job_description: str, 
-    output_path: str, 
-    model: str = "gpt-4-turbo-preview",
-    temperature: float = 0.7,
+    output_path: str,
+    model: str = "gpt-4o",
+    temperature: float = 0.1,
     api_key: str = None
 ):
     """
-    Rewrites the resume using the specified OpenAI model and parameters.
+    Rewrites a resume to better match a job description using OpenAI's API.
+    
+    Args:
+        resume_path: Path to the original resume DOCX file
+        job_description: Text of the job posting
+        output_path: Path where the rewritten resume will be saved
+        model: OpenAI model to use
+        temperature: Creativity level (0.0 to 1.0)
+        api_key: OpenAI API key
     """
     try:
-        # Load resume text from the DOCX file
-        doc = Document(input_path)
+        # Extract text from the resume
+        doc = Document(resume_path)
         resume_text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
-
-        # Define the prompt template with instructions for both required and optional sections.
-        prompt_template = (
-            "You are a career expert and resume optimization specialist. Your task is to rewrite the given resume so that it aligns perfectly with the job posting, increases keyword match for Applicant Tracking Systems (ATS), and maximizes the candidate's chance of securing an interview. The final resume must be concise, optimized for quick scanning, and no longer than two pages.\n\n"
-            "Please address the following resume sections and requirements. Note: Sections marked as REQUIRED must be present and optimized. For sections marked as OPTIONAL, do not add them if the original resume does not contain any information for that section.\n\n"
-            "1. **Contact Information** (REQUIRED):\n"
-            "   - Verify that the name, phone number, email address, and location (city and state) are clear and professional.\n\n"
-            "2. **Resume Summary/Objective** (REQUIRED):\n"
-            "   - Enhance the professional summary or objective to concisely reflect the candidate's strengths and career goals in relation to the job posting.\n\n"
-            "3. **Work Experience** (REQUIRED):\n"
-            "   - Assess the employment history and professional experience. Emphasize promotions, career progression, quantifiable achievements, and alignment with the job responsibilities.\n\n"
-            "4. **Education** (REQUIRED):\n"
-            "   - Summarize the academic background, including degrees and certifications, clearly and succinctly.\n\n"
-            "5. **Skills** (REQUIRED):\n"
-            "   - Highlight key skills relevant to the job. Update terminology if the job posting emphasizes specific technologies (e.g., replace GCP with AWS) and include adjacent or related skills mentioned in the posting.\n\n"
-            "6. **Certifications and Licenses** (OPTIONAL):\n"
-            "   - If present, list only those certifications and licenses that are directly relevant.\n\n"
-            "7. **Professional Affiliations** (OPTIONAL):\n"
-            "   - If present, mention memberships in professional organizations that enhance the candidate's profile.\n\n"
-            "8. **Volunteer Experience** (OPTIONAL):\n"
-            "   - If present, include any volunteer work that supports the candidate's qualifications.\n\n"
-            "9. **Projects** (OPTIONAL):\n"
-            "   - If present, feature significant projects that demonstrate relevant skills and achievements.\n\n"
-            "10. **Publications or Presentations** (OPTIONAL):\n"
-            "    - If present, add any published works or presentations that contribute to the candidate's professional image.\n\n"
-            "11. **Additional Information** (OPTIONAL):\n"
-            "    - If present, briefly include extra details such as languages spoken or interests relevant to the job.\n\n"
-            "Additional requirements:\n"
-            "- Ensure the final resume is concise and optimized for quick scanning, minimizing wordiness while retaining critical details.\n"
-            "- Clearly highlight any career promotions and progression in previous roles.\n"
-            "- Do not add any optional section if the original resume does not contain it.\n"
-            "- Replace or update keywords as needed: for example, if the job posting specifies AWS but the original resume mentions GCP, modify it to AWS and include related technologies from the posting.\n"
-            "- Output only the rewritten resume test without any additional text.\n"
-            "- Respect the same order of sections as the original resume.\n"
-            "- If the job posting does not directly align with the candidate's background, reformat and optimize the resume by emphasizing transferable skills, key accomplishments, and overall strengths to create a more compelling presentation.\n"
-            "- The final rewritten resume must fit within two pages.\n\n"
-            "Job Posting:\n{job_posting}\n\n"
-            "Original Resume:\n{resume_text}\n\n"
-            "Rewritten Resume:"
-        )
-        prompt = PromptTemplate(
-            template=prompt_template,
-            input_variables=["job_posting", "resume_text"]
-        )
-
-        # Initialize the GPT‑3.5 chat model via LangChain using the updated import.
-        llm = ChatOpenAI(
-            model_name=model,
-            temperature=temperature,
-            openai_api_key=api_key
-        )
-
-        # Create a runnable sequence using the pipe operator.
-        runnable = prompt | llm
-
-        # Instead of formatting the prompt manually, pass a mapping.
-        input_data = {"job_posting": job_description, "resume_text": resume_text}
-        result = runnable.invoke(input=input_data)
-        revised_resume_text = result.content  # Extract the revised text
-
-        # Now, call the new formatting function to get the final ATS-friendly resume text.
-        final_resume_text = format_resume_with_chatgpt(revised_resume_text)
-
-        # Generate the final DOCX document using the formatted text.
-        new_doc = reformat_resume_text_for_docx(final_resume_text)
+        
+        # Create OpenAI client
+        client = OpenAI(api_key=api_key)
+        
+        # Improved prompt with specific steps and formatting instructions
+        prompt = f"""
+        You are an expert resume writer with years of experience helping job seekers land interviews.
+        
+        I'll provide you with a job description and a resume. Your task is to rewrite the resume to maximize the candidate's chances of getting an interview.
+        
+        Follow these specific steps:
+        
+        STEP 1: Identify the top 6 skills/requirements from the job description that the employer values most and name them to maximize keyword matching and recruiter engagement.
+        
+        STEP 2: Identify relevant positions and work experiences from the original resume that match those top skills.
+        
+        STEP 3: Rewrite each work experience to:
+        - Emphasize achievements that demonstrate the top skills
+        - Use keywords from the job description
+        - Quantify achievements with metrics where possible
+        - Optimize for ATS (Applicant Tracking Systems)
+        - Make reasonable enhancements to maximize keyword matching (without fabricating major qualifications)
+        - Write the work experience in reverse chronological order, with the most recent experience first
+        - Format each bullet point as: "skill: Achievement with metric" (where skill is one of the top skills in lowercase)
+        
+        STEP 4: Structure the resume with these exact section markers (DO NOT include these markers in your output):
+        - <NAME>: For the candidate's name
+        - <CONTACT>: For contact information (phone, email, LinkedIn, etc.)
+        - <SUMMARY>: For professional summary
+        - <SKILLS>: For skills section (arrange the 6 skills in 3 lines with 2 skills per line)
+        - <EXPERIENCE>: For work experience section
+        - <EDUCATION>: For education section
+        - <COMPANY>: For each company name
+        - <POSITION_DATE>: For job title and dates (format as "Job Title | Dates")
+        - <BULLET>: For each bullet point
+        
+        STEP 5: Ensure the resume is comprehensive but concise:
+        - Maximum 2 pages
+        - Utilize the space effectively
+        - Remove irrelevant information
+        - Prioritize recent and relevant experiences
+        - Prioritize skills that are most relevant to the job description
+        - Prioritize work experiences over other sections like volunteerism and extracurricular activities
+        - Prioritize longer work experiences over shorter ones, especially when there are multiple experiences around the same time period
+        - Highlight promotions or achievements in the bullet points
+        
+        IMPORTANT: Use the section markers ONLY to indicate the structure. I will parse your response and remove these markers. The final resume should not contain any visible markers.
+        
+        JOB DESCRIPTION:
+        {job_description}
+        
+        ORIGINAL RESUME:
+        {resume_text}
+        """
+        
+        # Check if using o1 or o3 models which have different API requirements
+        if model.startswith('o1') or model.startswith('o3'):
+            # For o1/o3 models, use a single user message without system message
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+            )
+        else:
+            # For standard GPT models, use system+user message format
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are an expert resume writer who helps job seekers optimize their resumes for specific job applications."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=temperature,
+                max_tokens=4000
+            )
+        
+        # Extract the rewritten resume text
+        rewritten_resume = response.choices[0].message.content.strip()
+        print("--------------------------------")
+        print("REWRITTEN RESUME")
+        print(rewritten_resume)
+        print("--------------------------------")
+        
+        # Create a new document with the rewritten content
+        new_doc = Document()
+        
+        # Set document styles
+        sections = new_doc.sections
+        for section in sections:
+            section.top_margin = 457200  # 0.5 inch
+            section.bottom_margin = 457200  # 0.5 inch
+            section.left_margin = 609600  # 0.67 inch
+            section.right_margin = 609600  # 0.67 inch
+        
+        # Process the content with formatting markers
+        lines = rewritten_resume.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Handle name (large and bold)
+            if line.startswith('<NAME>'):
+                name_text = line.replace('<NAME>', '').strip()
+                name_para = new_doc.add_paragraph()
+                name_run = name_para.add_run(name_text)
+                name_run.bold = True
+                name_run.font.size = 355600  # 14pt
+                name_para.alignment = 1  # Center alignment
+                
+            # Handle contact information (centered, smaller font)
+            elif line.startswith('<CONTACT>'):
+                contact_text = line.replace('<CONTACT>', '').strip()
+                contact_para = new_doc.add_paragraph()
+                contact_run = contact_para.add_run(contact_text)
+                contact_run.font.size = 254000  # 10pt
+                contact_para.alignment = 1  # Center alignment
+                
+            # Handle section headings
+            elif line.startswith('<SUMMARY>'):
+                new_doc.add_paragraph()  # Add space before section
+                heading = new_doc.add_heading('PROFESSIONAL SUMMARY', level=1)
+                for run in heading.runs:
+                    run.font.size = 160000  # 12pt
+                    run.bold = True
+                    
+            elif line.startswith('<SKILLS>'):
+                new_doc.add_paragraph()  # Add space before section
+                heading = new_doc.add_heading('SKILLS', level=1)
+                for run in heading.runs:
+                    run.font.size = 160000  # 12pt
+                    run.bold = True
+                    
+            elif line.startswith('<EXPERIENCE>'):
+                new_doc.add_paragraph()  # Add space before section
+                heading = new_doc.add_heading('PROFESSIONAL EXPERIENCE', level=1)
+                for run in heading.runs:
+                    run.font.size = 160000  # 12pt
+                    run.bold = True
+                    
+            elif line.startswith('<EDUCATION>'):
+                new_doc.add_paragraph()  # Add space before section
+                heading = new_doc.add_heading('EDUCATION', level=1)
+                for run in heading.runs:
+                    run.font.size = 160000  # 12pt
+                    run.bold = True
+            
+            # Handle company names (bold)
+            elif line.startswith('<COMPANY>'):
+                new_doc.add_paragraph()  # Add space before company
+                company_text = line.replace('<COMPANY>', '').strip()
+                company = new_doc.add_paragraph()
+                company_run = company.add_run(company_text)
+                company_run.bold = True
+                company_run.font.size = 160000  # 11pt
+                
+            # Handle position and date (position bold, date right-aligned)
+            elif line.startswith('<POSITION_DATE>'):
+                position_date_text = line.replace('<POSITION_DATE>', '').strip()
+                
+                # Split by the pipe character if it exists
+                if '|' in position_date_text:
+                    position_text, date_text = position_date_text.split('|', 1)
+                    position_text = position_text.strip()
+                    date_text = date_text.strip()
+                    
+                    # Create paragraph with tab stop for right alignment
+                    position_para = new_doc.add_paragraph()
+                    
+                    # Add position (left-aligned, bold)
+                    position_run = position_para.add_run(position_text)
+                    position_run.bold = True
+                    position_run.font.size = 279400  # 11pt
+                    
+                    # Add tab and date (right-aligned)
+                    position_para.add_run('\t\t\t\t\t')  # Multiple tabs for visual separation
+                    date_run = position_para.add_run(date_text)
+                    date_run.font.size = 279400  # 11pt
+                    
+                    # Set paragraph alignment to right for the date
+                    position_para.paragraph_format.alignment = 3  # Right alignment
+                else:
+                    # If no pipe character, just add the text as is
+                    position_para = new_doc.add_paragraph()
+                    position_run = position_para.add_run(position_date_text)
+                    position_run.bold = True
+                    position_run.font.size = 279400  # 11pt
+                
+            # Handle bullet points
+            elif line.startswith('<BULLET>'):
+                bullet_text = line.replace('<BULLET>', '').strip()
+                
+                # Create bullet point paragraph
+                bullet = new_doc.add_paragraph(style='List Bullet')
+                
+                # Check if the bullet point has a skill prefix (skill: text)
+                if ':' in bullet_text:
+                    skill, achievement = bullet_text.split(':', 1)
+                    skill = skill.strip()
+                    achievement = achievement.strip()
+                    
+                    # Add skill in bold (not capitalized)
+                    skill_run = bullet.add_run(f"{skill.lower()}: ")
+                    skill_run.bold = True
+                    skill_run.font.size = 279400  # 11pt
+                    
+                    # Add achievement text
+                    achievement_run = bullet.add_run(achievement)
+                    achievement_run.font.size = 279400  # 11pt
+                else:
+                    # Just add the bullet text as is
+                    bullet_run = bullet.add_run(bullet_text)
+                    bullet_run.font.size = 279400  # 11pt
+                
+            # Handle skills section (2 skills per line)
+            elif line.startswith('- ') and any(prev_line.startswith('<SKILLS>') for prev_line in lines[:lines.index(line)]):
+                # Create a new paragraph for the skill
+                skill_para = new_doc.add_paragraph()
+                skill_para.style = 'List Bullet'
+                skill_run = skill_para.add_run(line[2:])  # Remove the "- " prefix
+                skill_run.font.size = 279400  # 11pt
+                
+            # Handle regular text (for lines without markers)
+            else:
+                # Skip lines that might contain visible markers
+                if '**<' in line or '<NAME>' in line or '<CONTACT>' in line or line.startswith(':'):
+                    continue
+                    
+                para = new_doc.add_paragraph()
+                text_run = para.add_run(line)
+                text_run.font.size = 279400  # 11pt
+        
+        # Save the document
         new_doc.save(output_path)
+        return True
+        
     except Exception as e:
-        # Log the error if needed
         print(f"Resume rewriting failed: {e}. Falling back to original resume.")
-        # Fallback: copy the original file to the output
-        shutil.copy(input_path, output_path)
+        # If there's an error, copy the original resume to the output path
+        if os.path.exists(resume_path):
+            shutil.copy(resume_path, output_path)
+        return False
+
+def process_formatting(text):
+    """
+    Prepares text with formatting markers for processing.
+    Returns a list of (text, is_bold, is_italic) tuples.
+    """
+    # Replace the markers with something we can parse more easily
+    text = text.replace('**', '§BOLD§')
+    text = text.replace('*', '§ITALIC§')
+    
+    # Split by formatting markers
+    parts = []
+    current_text = ""
+    is_bold = False
+    is_italic = False
+    
+    for char in text:
+        if char == '§':
+            if current_text:
+                parts.append((current_text, is_bold, is_italic))
+                current_text = ""
+            
+            # Check next few characters
+            if text[text.index(char):].startswith('§BOLD§'):
+                is_bold = not is_bold
+                text = text[text.index(char) + 6:]  # Skip the marker
+            elif text[text.index(char):].startswith('§ITALIC§'):
+                is_italic = not is_italic
+                text = text[text.index(char) + 8:]  # Skip the marker
+        else:
+            current_text += char
+    
+    if current_text:
+        parts.append((current_text, is_bold, is_italic))
+    
+    return parts
+
+def process_text_with_formatting(text, paragraph):
+    """
+    Adds text with proper formatting to a paragraph.
+    """
+    # Process bold text (between ** markers)
+    bold_pattern = r'\*\*(.*?)\*\*'
+    italic_pattern = r'\*(.*?)\*'
+    
+    # First, find all bold sections and process them
+    bold_matches = re.finditer(bold_pattern, text)
+    last_end = 0
+    for match in bold_matches:
+        # Add text before the bold section
+        if match.start() > last_end:
+            paragraph.add_run(text[last_end:match.start()])
         
+        # Add the bold text
+        bold_run = paragraph.add_run(match.group(1))
+        bold_run.bold = True
         
+        last_end = match.end()
+    
+    # Add any remaining text after the last bold section
+    if last_end < len(text):
+        remaining_text = text[last_end:]
+        
+        # Process italic text in the remaining text
+        italic_matches = re.finditer(italic_pattern, remaining_text)
+        last_italic_end = 0
+        
+        for match in italic_matches:
+            # Add text before the italic section
+            if match.start() > last_italic_end:
+                paragraph.add_run(remaining_text[last_italic_end:match.start()])
+            
+            # Add the italic text
+            italic_run = paragraph.add_run(match.group(1))
+            italic_run.italic = True
+            
+            last_italic_end = match.end()
+        
+        # Add any remaining text after the last italic section
+        if last_italic_end < len(remaining_text):
+            paragraph.add_run(remaining_text[last_italic_end:])
+
 def generate_recommendations(
-    job_posting: str, 
+    job_description: str, 
     resume_text: str,
-    model: str = "gpt-4-turbo-preview",
-    temperature: float = 0.7,
+    model: str = "gpt-4o",
+    temperature: float = 0.1,
     api_key: str = None
 ) -> str:
     """
-    Generates recommendations using the specified OpenAI model and parameters.
+    Generates recommendations for improving the resume based on the job description.
     """
-    prompt_template = (
-        "You are a career advisor. Based on the following job posting and resume, "
-        "generate a list of bullet point recommendations to improve the resume. "
-        "Include suggestions for missed keywords, skills to emphasize, and actionable improvements to maximize callback chances.\n\n"
-        "Job Posting:\n{job_posting}\n\n"
-        "Resume:\n{resume_text}\n\n"
-        "Recommendations (each starting with a dash '-'):"
-    )
-    prompt = PromptTemplate(
-        template=prompt_template,
-        input_variables=["job_posting", "resume_text"]
-    )
-    llm = ChatOpenAI(
-        model_name=model,
-        temperature=temperature,
-        openai_api_key=api_key
-    )
-    runnable = prompt | llm
-    input_data = {"job_posting": job_posting, "resume_text": resume_text}
-    result = runnable.invoke(input=input_data)
-    return result.content
+    try:
+        # Create OpenAI client
+        client = OpenAI(api_key=api_key)
+        
+        prompt = f"""
+        You are an expert career coach and resume writer. Analyze the job description and resume below, then provide specific recommendations to improve the resume.
+        
+        Focus on:
+        1. Skills gaps between the job requirements and the resume
+        2. Specific sections that could be improved or added
+        3. Keywords that should be included
+        4. Formatting suggestions
+        5. Content that could be removed or de-emphasized
+        
+        Provide actionable, specific advice that would help this candidate improve their chances of getting an interview.
+        
+        JOB DESCRIPTION:
+        {job_description}
+        
+        RESUME:
+        {resume_text}
+        """
+        
+        # Check if using o1 or o3 models which have different API requirements
+        if model.startswith('o1') or model.startswith('o3'):
+            # For o1/o3 models, use a single user message without system message
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=1.0,  # o1/o3 models only support temperature=1.0
+                max_completion_tokens=2000
+            )
+        else:
+            # For standard GPT models, use system+user message format
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are an expert career coach who provides detailed, actionable advice to job seekers."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=temperature,
+                max_tokens=2000
+            )
+        
+        # Return the recommendations
+        return response.choices[0].message.content.strip()
+        
+    except Exception as e:
+        print(f"Recommendation generation failed: {e}")
+        return "Unable to generate recommendations due to an error. Please try again later."
