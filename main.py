@@ -345,46 +345,87 @@ excluded_models = [
     '-16k', '-mini-realtime', '-realtime', '-audio'
 ]
 
-# Update the fetch_openai_models function with stronger filtering
-@timed_cache(seconds=3600)
+# Update the fetch_openai_models function to deduplicate models
+@timed_cache(seconds=300)
 async def fetch_openai_models(api_key: str) -> List[Dict]:
     """
-    Fetches available models from OpenAI and returns only chat-compatible models.
+    Fetches available OpenAI models with caching.
+    Returns a list of model info dictionaries.
     """
     try:
+        # List of model types to exclude
+        excluded_models = [
+            'whisper', 'dall-e', 'tts', 'text-embedding', 'audio',
+            'text-moderation', 'instruct', 'vision', 'realtime',
+            'preview-2024', 'preview-2023', '-1106', '-0125', '-0613',
+            '-16k', '-mini-realtime', '-realtime', '-audio'
+        ]
+        
         client = OpenAI(api_key=api_key)
         models = client.models.list()
         
         # List of known chat-compatible model prefixes
         chat_model_prefixes = [
-            'gpt-4-', 'gpt-4o', 'gpt-3.5-turbo'
+            'gpt-4-', 'gpt-4o', 'gpt-3.5-turbo', 'o1-', 'o3-'
         ]
         
         # Filter for chat models and format them
         chat_models = []
-        seen_model_ids = set()  # Track models we've already added
         
-        # Update the preferred_models list to include all reasoning models
+        # Track the latest version of each base model
+        latest_models = {}
+        
+        # First, group models by their base name and find the latest version
+        for model in models.data:
+            model_id = model.id
+            
+            # Check if this is a chat model and doesn't contain any excluded terms
+            is_chat_model = any(model_id.startswith(prefix) for prefix in chat_model_prefixes)
+            is_excluded = any(excluded in model_id.lower() for excluded in excluded_models)
+            
+            if is_chat_model and not is_excluded:
+                # Extract the base model name (without date/version)
+                if '-20' in model_id:  # Has a date like -2023-xx-xx
+                    base_name = model_id.split('-20')[0]
+                else:
+                    # For models without dates, use the full name as base
+                    base_name = model_id
+                
+                # Special handling for o1-preview and similar models
+                if base_name == 'o1-preview' or base_name == 'o3-preview':
+                    base_name = base_name  # Keep as is
+                
+                # For mini models, keep the mini suffix
+                if '-mini' in base_name:
+                    base_name = base_name
+                
+                # Store this as the latest version if it's newer or first seen
+                if base_name not in latest_models or model_id > latest_models[base_name]:
+                    latest_models[base_name] = model_id
+        
+        # Now process our preferred models in order
         preferred_models = [
             'o1-mini',      # Default reasoning model
             'o1-preview',   # Advanced reasoning model
             'o1',           # Full reasoning model
             'o3-mini',      # Compact reasoning model
+            'o3-preview',   # Preview reasoning model
+            'o3',           # Full reasoning model
             'gpt-4o',       # Advanced GPT model
-            'gpt-4-turbo',  # High-performance GPT model
             'gpt-4o-mini',  # Compact GPT-4 model
+            'gpt-4-turbo',  # High-performance GPT model
             'gpt-4',        # Standard GPT-4 model
             'gpt-3.5-turbo' # Fast GPT model
         ]
         
-        # Add preferred models first if they exist in the API response
-        model_ids = [model.id for model in models.data]
-        for preferred_id in preferred_models:
-            matching_ids = [mid for mid in model_ids if preferred_id in mid and 
-                           not any(excluded in mid.lower() for excluded in excluded_models)]
-            if matching_ids:
-                # Use the most recent version if multiple matches
-                model_id = sorted(matching_ids)[-1]
+        # Add models in our preferred order, using the latest version of each
+        seen_model_ids = set()
+        for preferred_base in preferred_models:
+            matching_base = next((base for base in latest_models.keys() 
+                                if base == preferred_base or base.startswith(preferred_base)), None)
+            
+            if matching_base and latest_models[matching_base] not in seen_model_ids:
+                model_id = latest_models[matching_base]
                 
                 # Use simple descriptions based on model family
                 if "o1-mini" in model_id:
@@ -395,6 +436,8 @@ async def fetch_openai_models(api_key: str) -> List[Dict]:
                     description = "Full reasoning model for complex tasks"
                 elif "o3-mini" in model_id:
                     description = "Compact reasoning model with strong capabilities"
+                elif "o3-preview" in model_id:
+                    description = "Advanced reasoning model with enhanced capabilities"
                 elif "o3" in model_id:
                     description = "Powerful reasoning model for complex tasks"
                 elif "gpt-4.5" in model_id:
@@ -421,25 +464,9 @@ async def fetch_openai_models(api_key: str) -> List[Dict]:
                 chat_models.append(model_info)
                 seen_model_ids.add(model_id)
         
-        # Then add any remaining models - but be very selective
-        for model in models.data:
-            model_id = model.id
-            
-            # Skip if we've already added this model
-            if model_id in seen_model_ids:
-                continue
-                
-            # Check if this is a chat model and doesn't contain any excluded terms
-            is_chat_model = any(model_id.startswith(prefix) for prefix in chat_model_prefixes)
-            is_excluded = any(excluded in model_id.lower() for excluded in excluded_models)
-            
-            # Only include base models without special capabilities or version numbers
-            if is_chat_model and not is_excluded:
-                # Skip models with date suffixes if we already have a similar model
-                base_model = model_id.split('-2023')[0].split('-2024')[0].split('-0')[0]
-                if any(base_model in seen_id for seen_id in seen_model_ids):
-                    continue
-                
+        # Add any remaining models from latest_models that weren't in our preferred list
+        for base_name, model_id in latest_models.items():
+            if model_id not in seen_model_ids:
                 # Simple description based on model family
                 if "gpt-4" in model_id:
                     description = "GPT-4 model variant"
@@ -467,7 +494,8 @@ async def fetch_openai_models(api_key: str) -> List[Dict]:
             chat_models,
             key=lambda x: (
                 not x["recommended"],  # Recommended models first
-                x["category"] != "Advanced",  # Advanced models first
+                x["category"] != "Reasoning",  # Reasoning models first
+                x["category"] != "Advanced",  # Then Advanced models
                 x["name"]  # Alphabetical within same category
             )
         )
