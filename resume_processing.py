@@ -1,4 +1,6 @@
 from docx import Document
+from docx.shared import Pt, Inches, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
@@ -217,7 +219,7 @@ def rewrite_resume(
         - Write the work experience in reverse chronological order, with the most recent experience first
         - Format each bullet point as: "skill: Achievement with metric" (where skill is one of the top skills in lowercase)
         
-        STEP 4: Structure the resume with these exact section markers (DO NOT include these markers in your output):
+        STEP 4: Structure the resume with these EXACT section markers (DO NOT include these markers in your output):
         - <NAME>: For the candidate's name
         - <CONTACT>: For contact information (phone, email, LinkedIn, etc.)
         - <SUMMARY>: For professional summary
@@ -227,6 +229,8 @@ def rewrite_resume(
         - <COMPANY>: For each company name
         - <POSITION_DATE>: For job title and dates (format as "Job Title | Dates")
         - <BULLET>: For each bullet point
+        
+        YOU MUST INCLUDE ALL OF THESE SECTION MARKERS IN YOUR RESPONSE. Do not skip any sections.
         
         STEP 5: Ensure the resume is comprehensive but concise:
         - Maximum 2 pages
@@ -255,6 +259,7 @@ def rewrite_resume(
                 messages=[
                     {"role": "user", "content": prompt}
                 ],
+                temperature=1.0,  # o1/o3 models only support temperature=1.0
             )
         else:
             # For standard GPT models, use system+user message format
@@ -275,111 +280,293 @@ def rewrite_resume(
         print(rewritten_resume)
         print("--------------------------------")
         
+        # Verify all required sections are present
+        required_sections = [
+            '<NAME>', '<CONTACT>', '<SUMMARY>', '<SKILLS>', 
+            '<EXPERIENCE>', '<EDUCATION>', '<COMPANY>', 
+            '<POSITION_DATE>', '<BULLET>'
+        ]
+        
+        missing_sections = [section for section in required_sections if section not in rewritten_resume]
+        
+        # If any sections are missing, try to fix the resume
+        if missing_sections:
+            print(f"Missing sections: {missing_sections}")
+            
+            # Create a repair prompt to fix the missing sections
+            repair_prompt = f"""
+            The resume you generated is missing the following required section markers:
+            {', '.join(missing_sections)}
+            
+            Please rewrite the resume to include ALL of these required section markers:
+            - <NAME>: For the candidate's name
+            - <CONTACT>: For contact information (phone, email, LinkedIn, etc.)
+            - <SUMMARY>: For professional summary
+            - <SKILLS>: For skills section (arrange the 6 skills in 3 lines with 2 skills per line)
+            - <EXPERIENCE>: For work experience section
+            - <EDUCATION>: For education section
+            - <COMPANY>: For each company name
+            - <POSITION_DATE>: For job title and dates (format as "Job Title | Dates")
+            - <BULLET>: For each bullet point
+            
+            Here is the resume you generated:
+            {rewritten_resume}
+            
+            for this job description:
+            {job_description}
+            
+            Please rewrite it to include ALL the required section markers.
+            """
+            
+            # Try to repair the resume
+            if model.startswith('o1') or model.startswith('o3'):
+                repair_response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "user", "content": repair_prompt}
+                    ],
+                    temperature=1.0,
+                )
+            else:
+                repair_response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": "You are an expert resume writer who helps job seekers optimize their resumes for specific job applications."},
+                        {"role": "user", "content": repair_prompt}
+                    ],
+                    temperature=temperature,
+                    max_tokens=4000
+                )
+            
+            # Use the repaired resume
+            rewritten_resume = repair_response.choices[0].message.content.strip()
+            print("--------------------------------")
+            print("REPAIRED RESUME")
+            print(rewritten_resume)
+            print("--------------------------------")
+            
+            # Check if we still have missing sections
+            still_missing = [section for section in required_sections if section not in rewritten_resume]
+            if still_missing:
+                print(f"Still missing sections after repair: {still_missing}")
+                # Add placeholder sections as a last resort
+                for section in still_missing:
+                    if section == '<NAME>':
+                        # Fix: Use a different approach to get the first line
+                        first_line = resume_text.split('\n')[0] if '\n' in resume_text else resume_text
+                        rewritten_resume = f"<NAME>: {first_line}\n" + rewritten_resume
+                    elif section == '<CONTACT>':
+                        rewritten_resume = rewritten_resume + f"\n<CONTACT>: Contact information from original resume"
+                    elif section == '<SUMMARY>':
+                        rewritten_resume = rewritten_resume + f"\n<SUMMARY>: Professional summary from original resume"
+                    elif section == '<SKILLS>':
+                        rewritten_resume = rewritten_resume + f"\n<SKILLS>: Skills from original resume"
+                    elif section == '<EXPERIENCE>':
+                        rewritten_resume = rewritten_resume + f"\n<EXPERIENCE>: Work experience from original resume"
+                    elif section == '<EDUCATION>':
+                        rewritten_resume = rewritten_resume + f"\n<EDUCATION>: Education from original resume"
+                    elif section == '<COMPANY>':
+                        rewritten_resume = rewritten_resume + f"\n<COMPANY>: Company from original resume"
+                    elif section == '<POSITION_DATE>':
+                        rewritten_resume = rewritten_resume + f"\n<POSITION_DATE>: Position and dates from original resume"
+                    elif section == '<BULLET>':
+                        rewritten_resume = rewritten_resume + f"\n<BULLET>: Achievement from original resume"
+        
         # Create a new document with the rewritten content
         new_doc = Document()
         
-        # Set document styles
+        # Set document margins for better space utilization
         sections = new_doc.sections
         for section in sections:
-            section.top_margin = 457200  # 0.5 inch
-            section.bottom_margin = 457200  # 0.5 inch
-            section.left_margin = 609600  # 0.67 inch
-            section.right_margin = 609600  # 0.67 inch
-        
-        # Process the content with formatting markers
+            section.top_margin = Inches(0.1)
+            section.bottom_margin = Inches(0.1)
+            section.left_margin = Inches(0.25)
+            section.right_margin = Inches(0.25)
+
+        # Process the rewritten resume line by line
         lines = rewritten_resume.split('\n')
         
-        for line in lines:
+        for i, line in enumerate(lines):
             line = line.strip()
             if not line:
                 continue
                 
-            # Handle name (large and bold)
+            # Handle name (large and centered)
             if line.startswith('<NAME>'):
                 name_text = line.replace('<NAME>', '').strip()
-                name_para = new_doc.add_paragraph()
-                name_run = name_para.add_run(name_text)
+                name = new_doc.add_paragraph()
+                name.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                name_run = name.add_run(name_text)
                 name_run.bold = True
-                name_run.font.size = 355600  # 14pt
-                name_para.alignment = 1  # Center alignment
+                name_run.font.size = Pt(18)  # 18pt font for name
+                name_run.font.name = "Calibri"
                 
-            # Handle contact information (centered, smaller font)
+            # Handle contact information (centered)
             elif line.startswith('<CONTACT>'):
                 contact_text = line.replace('<CONTACT>', '').strip()
-                contact_para = new_doc.add_paragraph()
-                contact_run = contact_para.add_run(contact_text)
-                contact_run.font.size = 254000  # 10pt
-                contact_para.alignment = 1  # Center alignment
+                contact = new_doc.add_paragraph()
+                contact.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                contact_run = contact.add_run(contact_text)
+                contact_run.font.size = Pt(10)  # 10pt font for contact info
+                contact_run.font.name = "Calibri"
                 
             # Handle section headings
             elif line.startswith('<SUMMARY>'):
                 new_doc.add_paragraph()  # Add space before section
-                heading = new_doc.add_heading('PROFESSIONAL SUMMARY', level=1)
-                for run in heading.runs:
-                    run.font.size = 160000  # 12pt
-                    run.bold = True
-                    
+                heading = new_doc.add_paragraph()
+                heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                heading_run = heading.add_run('PROFESSIONAL SUMMARY')
+                heading_run.bold = True
+                heading_run.font.size = Pt(12)  # 12pt font for headings
+                heading_run.font.name = "Calibri"
+                heading_run.font.color.rgb = RGBColor(0x33, 0x33, 0x33)  # Dark gray
+                
+                # Add a horizontal line below the heading
+                p = heading._p
+                pPr = p.get_or_add_pPr()
+                pBdr = OxmlElement('w:pBdr')
+                bottom = OxmlElement('w:bottom')
+                bottom.set(qn('w:val'), 'single')
+                bottom.set(qn('w:sz'), '6')  # 1/2 point
+                bottom.set(qn('w:space'), '1')
+                bottom.set(qn('w:color'), '999999')  # Light gray
+                pBdr.append(bottom)
+                pPr.append(pBdr)
+                
             elif line.startswith('<SKILLS>'):
                 new_doc.add_paragraph()  # Add space before section
-                heading = new_doc.add_heading('SKILLS', level=1)
-                for run in heading.runs:
-                    run.font.size = 160000  # 12pt
-                    run.bold = True
-                    
+                heading = new_doc.add_paragraph()
+                heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                heading_run = heading.add_run('SKILLS')
+                heading_run.bold = True
+                heading_run.font.size = Pt(12)  # 12pt font for headings
+                heading_run.font.name = "Calibri"
+                heading_run.font.color.rgb = RGBColor(0x33, 0x33, 0x33)  # Dark gray
+                
+                # Add a horizontal line below the heading
+                p = heading._p
+                pPr = p.get_or_add_pPr()
+                pBdr = OxmlElement('w:pBdr')
+                bottom = OxmlElement('w:bottom')
+                bottom.set(qn('w:val'), 'single')
+                bottom.set(qn('w:sz'), '6')  # 1/2 point
+                bottom.set(qn('w:space'), '1')
+                bottom.set(qn('w:color'), '999999')  # Light gray
+                pBdr.append(bottom)
+                pPr.append(pBdr)
+                
             elif line.startswith('<EXPERIENCE>'):
                 new_doc.add_paragraph()  # Add space before section
-                heading = new_doc.add_heading('PROFESSIONAL EXPERIENCE', level=1)
-                for run in heading.runs:
-                    run.font.size = 160000  # 12pt
-                    run.bold = True
-                    
+                heading = new_doc.add_paragraph()
+                heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                heading_run = heading.add_run('PROFESSIONAL EXPERIENCE')
+                heading_run.bold = True
+                heading_run.font.size = Pt(12)  # 12pt font for headings
+                heading_run.font.name = "Calibri"
+                heading_run.font.color.rgb = RGBColor(0x33, 0x33, 0x33)  # Dark gray
+                
+                # Add a horizontal line below the heading
+                p = heading._p
+                pPr = p.get_or_add_pPr()
+                pBdr = OxmlElement('w:pBdr')
+                bottom = OxmlElement('w:bottom')
+                bottom.set(qn('w:val'), 'single')
+                bottom.set(qn('w:sz'), '6')  # 1/2 point
+                bottom.set(qn('w:space'), '1')
+                bottom.set(qn('w:color'), '999999')  # Light gray
+                pBdr.append(bottom)
+                pPr.append(pBdr)
+                
             elif line.startswith('<EDUCATION>'):
                 new_doc.add_paragraph()  # Add space before section
-                heading = new_doc.add_heading('EDUCATION', level=1)
-                for run in heading.runs:
-                    run.font.size = 160000  # 12pt
-                    run.bold = True
-            
-            # Handle company names (bold)
+                heading = new_doc.add_paragraph()
+                heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                heading_run = heading.add_run('EDUCATION')
+                heading_run.bold = True
+                heading_run.font.size = Pt(12)  # 12pt font for headings
+                heading_run.font.name = "Calibri"
+                heading_run.font.color.rgb = RGBColor(0x33, 0x33, 0x33)  # Dark gray
+                
+                # Add a horizontal line below the heading
+                p = heading._p
+                pPr = p.get_or_add_pPr()
+                pBdr = OxmlElement('w:pBdr')
+                bottom = OxmlElement('w:bottom')
+                bottom.set(qn('w:val'), 'single')
+                bottom.set(qn('w:sz'), '6')  # 1/2 point
+                bottom.set(qn('w:space'), '1')
+                bottom.set(qn('w:color'), '999999')  # Light gray
+                pBdr.append(bottom)
+                pPr.append(pBdr)
+                
+            # Handle company name (bold)
             elif line.startswith('<COMPANY>'):
-                new_doc.add_paragraph()  # Add space before company
                 company_text = line.replace('<COMPANY>', '').strip()
                 company = new_doc.add_paragraph()
                 company_run = company.add_run(company_text)
                 company_run.bold = True
-                company_run.font.size = 160000  # 11pt
+                company_run.font.size = Pt(11)  # 11pt font for company name
+                company_run.font.name = "Calibri"
                 
             # Handle position and date (position bold, date right-aligned)
             elif line.startswith('<POSITION_DATE>'):
                 position_date_text = line.replace('<POSITION_DATE>', '').strip()
                 
-                # Split by the pipe character if it exists
+                # Check if there's a pipe character to separate position and date
                 if '|' in position_date_text:
                     position_text, date_text = position_date_text.split('|', 1)
                     position_text = position_text.strip()
                     date_text = date_text.strip()
                     
-                    # Create paragraph with tab stop for right alignment
-                    position_para = new_doc.add_paragraph()
+                    # Create a table for position and date to ensure proper alignment
+                    table = new_doc.add_table(rows=1, cols=2)
+                    table.autofit = True
+                    table.allow_autofit = True
                     
-                    # Add position (left-aligned, bold)
+                    # Remove table borders
+                    table.style = 'Table Grid'
+                    for cell in table.cells:
+                        for paragraph in cell.paragraphs:
+                            for run in paragraph.runs:
+                                run.font.size = Pt(11)
+                                
+                    # Set cell widths
+                    table.columns[0].width = Inches(5.0)  # Position column
+                    table.columns[1].width = Inches(1.5)  # Date column
+                    
+                    # Add position (left cell, bold)
+                    position_cell = table.cell(0, 0)
+                    position_para = position_cell.paragraphs[0]
                     position_run = position_para.add_run(position_text)
                     position_run.bold = True
-                    position_run.font.size = 279400  # 11pt
+                    position_run.font.size = Pt(11)
+                    position_run.font.name = "Calibri"
+                    position_run.font.color.rgb = RGBColor(0x33, 0x33, 0x33)  # Dark gray
                     
-                    # Add tab and date (right-aligned)
-                    position_para.add_run('\t\t\t\t\t')  # Multiple tabs for visual separation
-                    date_run = position_para.add_run(date_text)
-                    date_run.font.size = 279400  # 11pt
+                    # Add date (right cell, right-aligned)
+                    date_cell = table.cell(0, 1)
+                    date_para = date_cell.paragraphs[0]
+                    date_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                    date_run = date_para.add_run(date_text)
+                    date_run.font.size = Pt(11)
+                    date_run.font.name = "Calibri"
+                    date_run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)  # Medium gray
                     
-                    # Set paragraph alignment to right for the date
-                    position_para.paragraph_format.alignment = 3  # Right alignment
+                    # Remove table borders
+                    table.style = 'Table Grid'
+                    for row in table.rows:
+                        for cell in row.cells:
+                            cell._element.get_or_add_tcPr().append(
+                                OxmlElement('w:tcBorders')
+                            )
+                            
                 else:
                     # If no pipe character, just add the text as is
                     position_para = new_doc.add_paragraph()
                     position_run = position_para.add_run(position_date_text)
                     position_run.bold = True
-                    position_run.font.size = 279400  # 11pt
+                    position_run.font.size = Pt(11)
+                    position_run.font.name = "Calibri"
                 
             # Handle bullet points
             elif line.startswith('<BULLET>'):
@@ -387,6 +574,8 @@ def rewrite_resume(
                 
                 # Create bullet point paragraph
                 bullet = new_doc.add_paragraph(style='List Bullet')
+                bullet.paragraph_format.left_indent = Inches(0.25)
+                bullet.paragraph_format.first_line_indent = Inches(-0.25)
                 
                 # Check if the bullet point has a skill prefix (skill: text)
                 if ':' in bullet_text:
@@ -397,23 +586,28 @@ def rewrite_resume(
                     # Add skill in bold (not capitalized)
                     skill_run = bullet.add_run(f"{skill.lower()}: ")
                     skill_run.bold = True
-                    skill_run.font.size = 279400  # 11pt
+                    skill_run.font.size = Pt(10)  # 10pt font for bullet points
+                    skill_run.font.name = "Calibri"
                     
                     # Add achievement text
                     achievement_run = bullet.add_run(achievement)
-                    achievement_run.font.size = 279400  # 11pt
+                    achievement_run.font.size = Pt(10)  # 10pt font for bullet points
+                    achievement_run.font.name = "Calibri"
                 else:
                     # Just add the bullet text as is
                     bullet_run = bullet.add_run(bullet_text)
-                    bullet_run.font.size = 279400  # 11pt
+                    bullet_run.font.size = Pt(10)  # 10pt font for bullet points
+                    bullet_run.font.name = "Calibri"
                 
             # Handle skills section (2 skills per line)
-            elif line.startswith('- ') and any(prev_line.startswith('<SKILLS>') for prev_line in lines[:lines.index(line)]):
+            elif line.startswith('- ') and any(prev_line.startswith('<SKILLS>') for prev_line in lines[:i]):
                 # Create a new paragraph for the skill
-                skill_para = new_doc.add_paragraph()
-                skill_para.style = 'List Bullet'
+                skill_para = new_doc.add_paragraph(style='List Bullet')
+                skill_para.paragraph_format.left_indent = Inches(0.25)
+                skill_para.paragraph_format.first_line_indent = Inches(-0.25)
                 skill_run = skill_para.add_run(line[2:])  # Remove the "- " prefix
-                skill_run.font.size = 279400  # 11pt
+                skill_run.font.size = Pt(10)  # 10pt font for skills
+                skill_run.font.name = "Calibri"
                 
             # Handle regular text (for lines without markers)
             else:
@@ -423,7 +617,8 @@ def rewrite_resume(
                     
                 para = new_doc.add_paragraph()
                 text_run = para.add_run(line)
-                text_run.font.size = 279400  # 11pt
+                text_run.font.size = Pt(10)  # 10pt font for regular text
+                text_run.font.name = "Calibri"
         
         # Save the document
         new_doc.save(output_path)
