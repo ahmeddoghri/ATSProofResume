@@ -182,12 +182,14 @@ def append_ok_to_sentences_with_full_formatting(input_path, output_path):
     # Save the modified document
     doc.save(output_path)
 
+
 def process_resume(resume_path, job_description, output_path):
     """
     Processes the DOCX resume by appending 'ok' to the end of each sentence.
     The job_description parameter is kept for compatibility with the interface but is not used.
     """
     append_ok_to_sentences_with_full_formatting(resume_path, output_path)
+
 
 def document_writer(resume_text,output_path,resume_path):
     try:
@@ -823,7 +825,4 @@ def rewrite_resume(
         if os.path.exists(resume_path):
             shutil.copy(resume_path, output_path)
         return False
-        
-        
-        
-        
+

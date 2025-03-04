@@ -9,7 +9,8 @@ import asyncio
 from urllib.parse import urlparse
 from docx import Document
 from job_scraper import JobPostingScraper  # Updated import
-from resume_processing import rewrite_resume
+from resume_processing import rewrite_resume # TODO : remove 
+from resume_processing_updated import ResumeRewriter
 from recommendations import generate_recommendations
 from interview_questions import generate_interview_questions
 import re
@@ -94,14 +95,25 @@ def process_resume_job(
         
         # Pass AI parameters to the processing functions
         formatted_resume_path = os.path.join(company_dir, "formatted_resume.docx")
-        rewrite_resume(
+        
+        resume_rewriter = ResumeRewriter(api_key=api_key)
+        resume_rewriter.rewrite_resume(
             resume_path, 
             job_data.get("job_text", ""), 
             formatted_resume_path,
             model=model,
             temperature=temperature,
-            api_key=api_key
         )
+            
+            
+        # rewrite_resume(
+        #     resume_path, 
+        #     job_data.get("job_text", ""), 
+        #     formatted_resume_path,
+        #     model=model,
+        #     temperature=temperature,
+        #     api_key=api_key
+        # )
         progress_status[job_id] = 60
         
         # Extract resume text for further processing
