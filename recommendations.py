@@ -10,7 +10,7 @@ def generate_recommendations(
     job_description: str, 
     resume_text: str, 
     api_key: Optional[str] = None, 
-    model: str = "gpt-4",
+    model: str = "gpt-4o",
     temperature: float = 0.7
 ) -> str:
     """
