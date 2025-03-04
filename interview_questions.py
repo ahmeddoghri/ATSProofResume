@@ -76,6 +76,11 @@ def generate_interview_questions(
         5. [Fifth question]
 
         And so on for each category.
+        
+        Use markdown formatting for emphasis where appropriate:
+        - Use **bold** for important terms or concepts
+        - Use *italics* for subtle emphasis
+        - Use bullet points for lists within questions if needed
         """
         
         # Determine which approach to use based on model
@@ -87,7 +92,7 @@ def generate_interview_questions(
                 response = client.chat.completions.create(
                     model=model,
                     messages=[
-                        {"role": "system", "content": "You are an expert interview coach who creates sophisticated, insightful questions for job candidates."},
+                        {"role": "system", "content": "You are an expert interview coach who creates sophisticated, insightful questions for job candidates. Use markdown formatting for emphasis where appropriate."},
                         {"role": "user", "content": prompt}
                     ],
                     temperature=0.7
@@ -96,7 +101,7 @@ def generate_interview_questions(
                 # For models that don't support system messages or specific temperature
                 response = client.chat.completions.create(
                     model=model,
-                    messages=[{"role": "user", "content": prompt}]
+                    messages=[{"role": "user", "content": "You are an expert interview coach who creates sophisticated, insightful questions for job candidates. Use markdown formatting for emphasis where appropriate.\n\n" + prompt}]
                 )
             
             # Parse the response

@@ -9,11 +9,12 @@ import asyncio
 from urllib.parse import urlparse
 from docx import Document
 from job_scraper import JobPostingScraper  # Updated import
-from resume_processing import rewrite_resume, generate_recommendations
+from resume_processing import rewrite_resume
+from recommendations import generate_recommendations
+from interview_questions import generate_interview_questions
 import re
 from openai import OpenAI
 from typing import List
-from interview_questions import generate_interview_questions
 import logging
 
 from openai import OpenAI
@@ -114,6 +115,8 @@ def process_resume_job(
             temperature=temperature,
             api_key=api_key
         )
+        # Format markdown for text file
+        recommendations_text = format_markdown_for_text(recommendations_text)
         recommendations_path = os.path.join(company_dir, "recommendations.txt")
         with open(recommendations_path, "w", encoding="utf-8") as f:
             f.write(recommendations_text)
@@ -140,9 +143,11 @@ def process_resume_job(
             
             for category, question_list in questions.items():
                 questions_text += f"{category.upper()}\n"
-                questions_text += "-" * len(category) + "\n"
+                questions_text += "=" * len(category) + "\n"
                 for i, question in enumerate(question_list, 1):
-                    questions_text += f"{i}. {question}\n"
+                    # Format markdown in the question
+                    formatted_question = format_markdown_for_text(question)
+                    questions_text += f"{i}. {formatted_question}\n"
                 questions_text += "\n"
             
             # Save questions to file
@@ -635,9 +640,11 @@ async def generate_questions(
         
         for category, question_list in questions.items():
             questions_text += f"{category.upper()}\n"
-            questions_text += "-" * len(category) + "\n"
+            questions_text += "=" * len(category) + "\n"
             for i, question in enumerate(question_list, 1):
-                questions_text += f"{i}. {question}\n"
+                # Format markdown in the question
+                formatted_question = format_markdown_for_text(question)
+                questions_text += f"{i}. {formatted_question}\n"
             questions_text += "\n"
         
         # Save questions to file in the company directory
@@ -658,5 +665,28 @@ async def generate_questions(
     except Exception as e:
         logging.error(f"Error generating interview questions: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error generating questions: {str(e)}")
+
+def format_markdown_for_text(content):
+    """
+    Convert markdown formatting to plain text formatting that looks good in .txt files
+    """
+    # Replace markdown headings with ASCII-style headings
+    content = re.sub(r'###\s+(.*)', r'\n\1\n' + '-' * 40, content)
+    content = re.sub(r'##\s+(.*)', r'\n\1\n' + '=' * 40, content)
+    content = re.sub(r'#\s+(.*)', r'\n\1\n' + '=' * 60, content)
+    
+    # Replace bold with UPPERCASE
+    content = re.sub(r'\*\*(.*?)\*\*', lambda m: m.group(1).upper(), content)
+    
+    # Replace italic with _underscores_
+    content = re.sub(r'\*(.*?)\*', r'_\1_', content)
+    
+    # Replace markdown bullet points with ASCII bullet points
+    content = re.sub(r'^\s*-\s+', '• ', content, flags=re.MULTILINE)
+    
+    # Replace markdown horizontal rules
+    content = re.sub(r'---+', '=' * 60, content)
+    
+    return content
 
     
