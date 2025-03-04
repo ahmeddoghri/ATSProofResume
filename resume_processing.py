@@ -26,6 +26,7 @@ import os
 import re
 import time
 import logging
+from recommendations import generate_recommendations
 
 
 # Set up logging
@@ -997,66 +998,3 @@ def process_text_with_formatting(text, paragraph):
         # Add any remaining text after the last italic section
         if last_italic_end < len(remaining_text):
             paragraph.add_run(remaining_text[last_italic_end:])
-
-def generate_recommendations(
-    job_description: str, 
-    resume_text: str,
-    model: str = "gpt-4o",
-    temperature: float = 0.1,
-    api_key: str = None
-) -> str:
-    """
-    Generates recommendations for improving the resume based on the job description.
-    """
-    try:
-        # Create OpenAI client
-        client = OpenAI(api_key=api_key)
-        
-        prompt = f"""
-        You are an expert career coach and resume writer. Analyze the job description and resume below, then provide specific recommendations to improve the resume.
-        
-        Focus on:
-        1. Skills gaps between the job requirements and the resume
-        2. Specific sections that could be improved or added
-        3. Keywords that should be included
-        4. Formatting suggestions
-        5. Content that could be removed or de-emphasized
-        
-        Provide actionable, specific advice that would help this candidate improve their chances of getting an interview.
-        
-        JOB DESCRIPTION:
-        {job_description}
-        
-        RESUME:
-        {resume_text}
-        """
-        
-        # Check if using o1 or o3 models which have different API requirements
-        if model.startswith('o1') or model.startswith('o3'):
-            # For o1/o3 models, use a single user message without system message
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=1.0,  # o1/o3 models only support temperature=1.0
-                max_completion_tokens=2000
-            )
-        else:
-            # For standard GPT models, use system+user message format
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "You are an expert career coach who provides detailed, actionable advice to job seekers."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=temperature,
-                max_tokens=2000
-            )
-        
-        # Return the recommendations
-        return response.choices[0].message.content.strip()
-        
-    except Exception as e:
-        print(f"Recommendation generation failed: {e}")
-        return "Unable to generate recommendations due to an error. Please try again later."
