@@ -276,600 +276,550 @@ def format_resume_with_chatgpt(resume_text):
 
 
 def rewrite_resume(
-    resume_path: str, 
-    job_description: str, 
-    output_path: str,
-    model: str = "gpt-4o",
-    temperature: float = 0.1,
-    api_key: str = None
+    resume_path, 
+    job_description, 
+    output_path, 
+    model="gpt-4o", 
+    temperature=0.1,
+    api_key=None
 ):
     """
-    Rewrites a resume to better match a job description using OpenAI's API.
+    Rewrites a resume to better match a job description.
     
     Args:
-        resume_path: Path to the original resume DOCX file
-        job_description: Text of the job posting
-        output_path: Path where the rewritten resume will be saved
+        resume_path: Path to the resume DOCX file
+        job_description: Job description text
+        output_path: Path to save the rewritten resume
         model: OpenAI model to use
-        temperature: Creativity level (0.0 to 1.0)
+        temperature: Temperature for generation
         api_key: OpenAI API key
+        
+    Returns:
+        bool: True if successful, False otherwise
     """
     try:
-        # Extract text from the resume
+        # Extract text from resume
         doc = Document(resume_path)
         resume_text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
         
         # Create OpenAI client
         client = OpenAI(api_key=api_key)
         
-        # Improved prompt with specific steps and formatting instructions
+        # Create the prompt
         prompt = f"""
-        You are an expert resume writer with years of experience helping job seekers land interviews.
+        You are an expert resume writer. Rewrite the provided resume to better match the job description.
         
-        I'll provide you with a job description and a resume. Your task is to rewrite the resume to maximize the candidate's chances of getting an interview.
-        
-        Follow these specific steps:
-        
-        STEP 1: Identify the top 6 skills/requirements from the job description that the employer values most and name them to maximize keyword matching and recruiter engagement.
-        
-        STEP 2: Identify relevant positions and work experiences from the original resume that match those top skills.
-        
-        STEP 3: Rewrite each work experience to:
-        - Emphasize achievements that demonstrate the top skills
-        - Use keywords from the job description
-        - Quantify achievements with metrics where possible
-        - Optimize for ATS (Applicant Tracking Systems)
-        - Make reasonable enhancements to maximize keyword matching (without fabricating major qualifications)
-        - Write the work experience in reverse chronological order, with the most recent experience first
-        - Format each bullet point as: "skill: Achievement with metric" (where skill is one of the top skills in lowercase)
-        
-        STEP 4: Structure the resume with these EXACT section markers (DO NOT include these markers in your output):
-        - <NAME>: For the candidate's name
-        - <CONTACT>: For contact information (phone, email, LinkedIn, etc.)
-        - <SUMMARY>: For professional summary
-        - <SKILLS>: For skills section (arrange the 6 skills in 3 lines with 2 skills per line)
-        - <EXPERIENCE>: For work experience section
-        - <EDUCATION>: For education section
-        - <COMPANY>: For each company name
-        - <POSITION_DATE>: For job title and dates (format as "Job Title | Dates")
-        - <BULLET>: For each bullet point
-        
-        YOU MUST INCLUDE ALL OF THESE SECTION MARKERS IN YOUR RESPONSE. Do not skip any sections.
-        
-        STEP 5: Ensure the resume is comprehensive but concise:
-        - Maximum 2 pages
-        - Utilize the space effectively
-        - Remove irrelevant information
-        - Prioritize recent and relevant experiences
-        - Prioritize skills that are most relevant to the job description
-        - Prioritize work experiences over other sections like volunteerism and extracurricular activities
-        - Prioritize longer work experiences over shorter ones, especially when there are multiple experiences around the same time period
-        - Highlight promotions or achievements in the bullet points
-        
-        IMPORTANT: Use the section markers ONLY to indicate the structure. I will parse your response and remove these markers. The final resume should not contain any visible markers.
+        Focus on:
+        1. Highlighting relevant skills and experiences
+        2. Using keywords from the job description
+        3. Quantifying achievements where possible
+        4. Maintaining a professional tone
+        5. Keeping the same basic information but rephrasing for impact
         
         JOB DESCRIPTION:
         {job_description}
         
-        ORIGINAL RESUME:
+        RESUME:
         {resume_text}
+        
+        FORMAT YOUR RESPONSE EXACTLY AS FOLLOWS:
+        
+        <NAME>
+        [Full Name]
+        
+        <CONTACT>
+        [Email] | [LinkedIn] | [Phone]
+        
+        <SUMMARY>
+        [Professional summary paragraph]
+        
+        <SKILLS>
+        [Skill 1] | [Skill 2] | [Skill 3]
+        [Skill 4] | [Skill 5] | [Skill 6]
+        
+        <EXPERIENCE>
+        <COMPANY>
+        [Company Name] | [Location]
+        
+        <POSITION_DATE>
+        [Position Title] | [MM/YYYY – MM/YYYY]
+        
+        <BULLET>
+        [skill area]: [Achievement with metrics]
+        
+        <BULLET>
+        [skill area]: [Achievement with metrics]
+        
+        <COMPANY>
+        [Company Name] | [Location]
+        
+        <POSITION_DATE>
+        [Position Title] | [MM/YYYY – MM/YYYY]
+        
+        <BULLET>
+        [skill area]: [Achievement with metrics]
+        
+        <EDUCATION>
+        [University Name] | [Location]
+        [Degree] – [Honors]
+        [GPA information] | [MM/YYYY – MM/YYYY]
+        
+        [University Name] | [Location]
+        [Degree] – [Honors]
+        [GPA information] | [MM/YYYY – MM/YYYY]
+        
+        <VOLUNTEERISM>
+        [Organization] | [MM/YYYY – MM/YYYY]
+        [Brief description of volunteer work]
+        
+        [Organization] | [MM/YYYY – MM/YYYY]
+        [Brief description of volunteer work]
+        
+        <OTHER RELEVANT INFORMATION>
+        [Category]: [Details]
+        [Category]: [Details]
+        
+        IMPORTANT: 
+        1. Maintain this EXACT format with section tags (<NAME>, <CONTACT>, etc.)
+        2. For each bullet point, start with a relevant skill area in lowercase, followed by a colon
+        3. Include 1-2 bullet points per position, focusing on the most relevant achievements
+        4. Ensure all dates are in MM/YYYY format
+        5. Do not add any explanatory text or notes outside this format
         """
         
-        # Check if using o1 or o3 models which have different API requirements
-        if model.startswith('o1') or model.startswith('o3'):
-            # For o1/o3 models, use a single user message without system message
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
-        else:
-            # For standard GPT models, use system+user message format
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "You are an expert resume writer who helps job seekers optimize their resumes for specific job applications."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=temperature,
-                max_tokens=4000
-            )
+        # Make the API call
+        max_retries = 3
+        retry_count = 0
+        success = False
         
-        # Extract the rewritten resume text
-        rewritten_resume = response.choices[0].message.content.strip()
-        print("--------------------------------")
-        print("REWRITTEN RESUME")
-        print(rewritten_resume)
-        print("--------------------------------")
+        while retry_count < max_retries and not success:
+            try:
+                logging.info(f"Attempt {retry_count + 1} to rewrite resume using model: {model}")
+                
+                # Check if using o1 or o3 models which have different API requirements
+                if model.startswith('o1') or model.startswith('o3') or model.startswith('claude'):
+                    # For o1/o3/claude models, use a single user message without system message
+                    response = client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "user", "content": "You are an expert resume writer who tailors resumes to job descriptions. Follow the format instructions exactly.\n\n" + prompt}
+                        ]
+                    )
+                else:
+                    # For standard GPT models, use system+user message format
+                    response = client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": "You are an expert resume writer who tailors resumes to job descriptions. Follow the format instructions exactly."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=temperature
+                    )
+                
+                # Get the generated resume text
+                resume_text = response.choices[0].message.content.strip()
+                
+                # Validate the format
+                if (
+                    "<NAME>" in resume_text and 
+                    "<CONTACT>" in resume_text and 
+                    "<SUMMARY>" in resume_text and 
+                    "<SKILLS>" in resume_text and 
+                    "<EXPERIENCE>" in resume_text and 
+                    "<COMPANY>" in resume_text and 
+                    "<POSITION_DATE>" in resume_text and 
+                    "<BULLET>" in resume_text
+                ):
+                    success = True
+                    logging.info("Resume format validation successful")
+                else:
+                    logging.warning("Resume format validation failed, retrying...")
+                    retry_count += 1
+                    
+            except Exception as e:
+                logging.error(f"API error on attempt {retry_count + 1}: {str(e)}")
+                retry_count += 1
+                time.sleep(2)  # Wait before retrying
         
-        # Verify all required sections are present
-        required_sections = [
-            '<NAME>', '<CONTACT>', '<SUMMARY>', '<SKILLS>', 
-            '<EXPERIENCE>', '<EDUCATION>', '<COMPANY>', 
-            '<POSITION_DATE>', '<BULLET>'
-        ]
+        if not success:
+            logging.error("Failed to generate properly formatted resume after multiple attempts")
+            return False
         
-        missing_sections = [section for section in required_sections if section not in rewritten_resume]
-        
-        # If any sections are missing, try to fix the resume
-        if missing_sections:
-            print(f"Missing sections: {missing_sections}")
-            
-            # Create a repair prompt to fix the missing sections
-            repair_prompt = f"""
-            The resume you generated is missing the following required section markers:
-            {', '.join(missing_sections)}
-            
-            Please rewrite the resume to include ALL of these required section markers:
-            - <NAME>: For the candidate's name
-            - <CONTACT>: For contact information (phone, email, LinkedIn, etc.)
-            - <SUMMARY>: For professional summary
-            - <SKILLS>: For skills section (arrange the 6 skills in 3 lines with 2 skills per line)
-            - <EXPERIENCE>: For work experience section
-            - <EDUCATION>: For education section
-            - <COMPANY>: For each company name
-            - <POSITION_DATE>: For job title and dates (format as "Job Title | Dates")
-            - <BULLET>: For each bullet point
-            
-            Here is the resume you generated:
-            {rewritten_resume}
-            
-            for this job description:
-            {job_description}
-            
-            Please rewrite it to include ALL the required section markers.
-            """
-            
-            # Try to repair the resume
-            if model.startswith('o1') or model.startswith('o3'):
-                repair_response = client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "user", "content": repair_prompt}
-                    ],
-                    temperature=1.0,
-                )
-            else:
-                repair_response = client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": "You are an expert resume writer who helps job seekers optimize their resumes for specific job applications."},
-                        {"role": "user", "content": repair_prompt}
-                    ],
-                    temperature=temperature,
-                    max_tokens=4000
-                )
-            
-            # Use the repaired resume
-            rewritten_resume = repair_response.choices[0].message.content.strip()
-            print("--------------------------------")
-            print("REPAIRED RESUME")
-            print(rewritten_resume)
-            print("--------------------------------")
-            
-            # Check if we still have missing sections
-            still_missing = [section for section in required_sections if section not in rewritten_resume]
-            if still_missing:
-                print(f"Still missing sections after repair: {still_missing}")
-                # Add placeholder sections as a last resort
-                for section in still_missing:
-                    if section == '<NAME>':
-                        # Fix: Use a different approach to get the first line
-                        first_line = resume_text.split('\n')[0] if '\n' in resume_text else resume_text
-                        rewritten_resume = f"<NAME>: {first_line}\n" + rewritten_resume
-                    elif section == '<CONTACT>':
-                        rewritten_resume = rewritten_resume + f"\n<CONTACT>: Contact information from original resume"
-                    elif section == '<SUMMARY>':
-                        rewritten_resume = rewritten_resume + f"\n<SUMMARY>: Professional summary from original resume"
-                    elif section == '<SKILLS>':
-                        rewritten_resume = rewritten_resume + f"\n<SKILLS>: Skills from original resume"
-                    elif section == '<EXPERIENCE>':
-                        rewritten_resume = rewritten_resume + f"\n<EXPERIENCE>: Work experience from original resume"
-                    elif section == '<EDUCATION>':
-                        rewritten_resume = rewritten_resume + f"\n<EDUCATION>: Education from original resume"
-                    elif section == '<COMPANY>':
-                        rewritten_resume = rewritten_resume + f"\n<COMPANY>: Company from original resume"
-                    elif section == '<POSITION_DATE>':
-                        rewritten_resume = rewritten_resume + f"\n<POSITION_DATE>: Position and dates from original resume"
-                    elif section == '<BULLET>':
-                        rewritten_resume = rewritten_resume + f"\n<BULLET>: Achievement from original resume"
-        
-        
-        
-        # Create a new document with the rewritten content
+        # Create a new document with the rewritten resume
         new_doc = Document()
-        # Set document margins for better space utilization
+        
+        # Set up document styles
+        styles = new_doc.styles
+        
+        # Add a custom style for compact paragraphs
+        if 'Compact' not in styles:
+            compact_style = styles.add_style('Compact', WD_STYLE_TYPE.PARAGRAPH)
+            compact_style.font.name = "Calibri"
+            compact_style.font.size = Pt(11)
+            compact_style.paragraph_format.space_after = Pt(2)
+            compact_style.paragraph_format.space_before = Pt(2)
+        
+        # Set page margins
         sections = new_doc.sections
         for section in sections:
-            section.top_margin = Inches(0.3)
-            section.bottom_margin = Inches(0.3)
-            section.left_margin = Inches(0.5)
-            section.right_margin = Inches(0.5)
+            section.top_margin = Inches(0.5)
+            section.bottom_margin = Inches(0.5)
+            section.left_margin = Inches(0.75)
+            section.right_margin = Inches(0.75)
         
-        # Add a style for paragraphs with reduced spacing
-        styles = new_doc.styles
-        style = styles.add_style('Compact', WD_STYLE_TYPE.PARAGRAPH)
-        style.base_style = styles['Normal']
-        style.paragraph_format.space_before = Pt(0)
-        style.paragraph_format.space_after = Pt(3)
-        style.paragraph_format.line_spacing = 1.0
-        style.paragraph_format.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+        # Parse the resume text
+        lines = resume_text.strip().split('\n')
         
-        # Process the resume text
-        lines = rewritten_resume.strip().split('\n')
-        
-        # Extract name and contact info
+        # Process the resume sections
         name = ""
-        contact = ""
-        for i, line in enumerate(lines):
-            if line.strip() == "<NAME>":
-                name = lines[i+1].strip()
-            if line.strip() == "<CONTACT>":
-                contact = lines[i+1].strip()
-                break
+        contact_info = []
+        summary = []
+        skills = []
         
-        # Add name and contact info to document
+        in_name = False
+        in_contact = False
+        in_summary = False
+        in_skills = False
+        in_experience = False
+        in_education = False
+        in_volunteerism = False
+        in_other_info = False
+        
+        current_company = None
+        current_position = None
+        current_bullets = []
+        
+        companies = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            if line == "<NAME>":
+                in_name = True
+                in_contact = False
+                in_summary = False
+                in_skills = False
+                in_experience = False
+                in_education = False
+                in_volunteerism = False
+                in_other_info = False
+                continue
+                
+            if line == "<CONTACT>":
+                in_name = False
+                in_contact = True
+                in_summary = False
+                in_skills = False
+                in_experience = False
+                in_education = False
+                in_volunteerism = False
+                in_other_info = False
+                continue
+                
+            if line == "<SUMMARY>":
+                in_name = False
+                in_contact = False
+                in_summary = True
+                in_skills = False
+                in_experience = False
+                in_education = False
+                in_volunteerism = False
+                in_other_info = False
+                continue
+                
+            if line == "<SKILLS>":
+                in_name = False
+                in_contact = False
+                in_summary = False
+                in_skills = True
+                in_experience = False
+                in_education = False
+                in_volunteerism = False
+                in_other_info = False
+                continue
+                
+            if line == "<EXPERIENCE>":
+                in_name = False
+                in_contact = False
+                in_summary = False
+                in_skills = False
+                in_experience = True
+                in_education = False
+                in_volunteerism = False
+                in_other_info = False
+                continue
+                
+            if line == "<EDUCATION>":
+                # If we were processing a company, save it
+                if current_company is not None:
+                    companies.append({
+                        "company": current_company,
+                        "position": current_position,
+                        "bullets": current_bullets
+                    })
+                    current_company = None
+                    current_position = None
+                    current_bullets = []
+                
+                in_name = False
+                in_contact = False
+                in_summary = False
+                in_skills = False
+                in_experience = False
+                in_education = True
+                in_volunteerism = False
+                in_other_info = False
+                continue
+                
+            if line == "<VOLUNTEERISM>":
+                in_name = False
+                in_contact = False
+                in_summary = False
+                in_skills = False
+                in_experience = False
+                in_education = False
+                in_volunteerism = True
+                in_other_info = False
+                continue
+                
+            if line == "<OTHER RELEVANT INFORMATION>":
+                in_name = False
+                in_contact = False
+                in_summary = False
+                in_skills = False
+                in_experience = False
+                in_education = False
+                in_volunteerism = False
+                in_other_info = True
+                continue
+                
+            # Process content based on current section
+            if in_name:
+                name = line
+            elif in_contact:
+                contact_info.append(line)
+            elif in_summary:
+                summary.append(line)
+            elif in_skills:
+                skills.append(line)
+            elif in_experience:
+                if line == "<COMPANY>":
+                    # If we were processing a company, save it
+                    if current_company is not None:
+                        companies.append({
+                            "company": current_company,
+                            "position": current_position,
+                            "bullets": current_bullets
+                        })
+                        current_company = None
+                        current_position = None
+                        current_bullets = []
+                    continue
+                    
+                if line == "<POSITION_DATE>":
+                    continue
+                    
+                if line == "<BULLET>":
+                    continue
+                    
+                if current_company is None:
+                    current_company = line
+                elif current_position is None:
+                    current_position = line
+                else:
+                    current_bullets.append(line)
+        
+        # Don't forget to add the last company if there is one
+        if current_company is not None:
+            companies.append({
+                "company": current_company,
+                "position": current_position,
+                "bullets": current_bullets
+            })
+        
+        # Now create the document with the parsed information
+        
+        # Add name as title
         name_para = new_doc.add_paragraph(style='Compact')
+        name_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
         name_run = name_para.add_run(name)
         name_run.bold = True
         name_run.font.size = Pt(16)
         name_run.font.name = "Calibri"
-
+        
         # Add contact info
         contact_para = new_doc.add_paragraph(style='Compact')
-        contact_run = contact_para.add_run(contact)
+        contact_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        contact_run = contact_para.add_run(" | ".join(contact_info))
         contact_run.font.size = Pt(11)
         contact_run.font.name = "Calibri"
         
-        # Add space after header
-        spacing_para = new_doc.add_paragraph(style='Compact')
-        spacing_para.paragraph_format.space_after = Pt(2)
+        # Add summary
+        if summary:
+            add_section_heading(new_doc, "PROFESSIONAL SUMMARY")
+            summary_para = new_doc.add_paragraph(style='Compact')
+            summary_run = summary_para.add_run(" ".join(summary))
+            summary_run.font.size = Pt(11)
+            summary_run.font.name = "Calibri"
         
-        # Extract summary
-        summary = ""
-        for i, line in enumerate(lines):
-            if line.strip() == "<SUMMARY>":
-                summary = lines[i+1].strip()
-                break
+        # Add skills
+        if skills:
+            add_section_heading(new_doc, "SKILLS")
+            for skill_line in skills:
+                skill_para = new_doc.add_paragraph(style='Compact')
+                skill_run = skill_para.add_run(skill_line)
+                skill_run.font.size = Pt(11)
+                skill_run.font.name = "Calibri"
         
-        # Add executive summary section
-        add_section_heading(new_doc, "EXECUTIVE SUMMARY")
-        summary_para = new_doc.add_paragraph(style='Compact')
-        summary_run = summary_para.add_run(summary)
-        summary_run.font.size = Pt(11)
-        summary_run.font.name = "Calibri"
-        
-        # Extract skills
-        skills = []
-        in_skills_section = False
-        for line in lines:
-            if line.strip() == "<SKILLS>":
-                in_skills_section = True
-                continue
-            if in_skills_section and line.strip() and not line.startswith("<"):
-                if "|" in line:
-                    skills.extend([s.strip() for s in line.split("|")])
-                else:
-                    skills.append(line.strip())
-            if in_skills_section and line.startswith("<"):
-                in_skills_section = False
-        
-        # Add functional expertise section
-        spacing_para = new_doc.add_paragraph(style='Compact')
-        spacing_para.paragraph_format.space_after = Pt(2)
-        add_section_heading(new_doc, "FUNCTIONAL EXPERTISE")
-        
-        # Calculate how many skills go in each column
-        skills_per_column = (len(skills) + 1) // 2  # Ceiling division
-        
-        # Create skills in two columns using tab stops
-        for i in range(skills_per_column):
-            skills_para = new_doc.add_paragraph(style='Compact')
+        # Add experience
+        if companies:
+            add_section_heading(new_doc, "PROFESSIONAL EXPERIENCE")
             
-            # Set tab stop for second column
-            skills_para.paragraph_format.tab_stops.add_tab_stop(Inches(3.5), WD_TAB_ALIGNMENT.LEFT)
-            
-            # Add first column bullet and skill
-            bullet_run = skills_para.add_run("• ")
-            bullet_run.font.size = Pt(11)
-            bullet_run.font.name = "Calibri"
-            
-            skill_run = skills_para.add_run(skills[i])
-            skill_run.font.size = Pt(11)
-            skill_run.font.name = "Calibri"
-            
-            # Add second column bullet and skill if available
-            if i + skills_per_column < len(skills):
-                tab_run = skills_para.add_run("\t")
+            # Sort companies by date (most recent first)
+            for company_data in companies:
+                company = company_data["company"]
+                position = company_data["position"]
+                bullets = company_data["bullets"]
                 
-                bullet_run2 = skills_para.add_run("• ")
-                bullet_run2.font.size = Pt(11)
-                bullet_run2.font.name = "Calibri"
-                
-                skill_run2 = skills_para.add_run(skills[i + skills_per_column])
-                skill_run2.font.size = Pt(11)
-                skill_run2.font.name = "Calibri"
-        
-        # Process experience sections
-        current_company = None
-        current_position = None
-        current_date = None
-        company_positions = {}  # Dictionary to track positions at each company
-
-        # First pass: collect all positions for each company
-        for i, line in enumerate(lines):
-            if line.strip() == "<COMPANY>":
-                current_company = lines[i+1].strip()
-                if current_company not in company_positions:
-                    company_positions[current_company] = []
-            
-            elif line.strip() == "<POSITION_DATE>" and current_company:
-                position_date = lines[i+1].strip()
-                if "|" in position_date:
-                    current_position, current_date = [p.strip() for p in position_date.split("|", 1)]
-                    
-                    # Collect bullets for this position
-                    bullets = []
-                    j = i + 2
-                    while j < len(lines):
-                        if lines[j].strip() == "<BULLET>":
-                            bullets.append(lines[j+1].strip())
-                            j += 2
-                        elif lines[j].strip() in ["<COMPANY>", "<POSITION_DATE>", "<EDUCATION>", "<VOLUNTEERISM>"]:
-                            break
-                        else:
-                            j += 1
-                    
-                    # Add position with its date and bullets
-                    company_positions[current_company].append((current_position, current_date, bullets))
-
-        # Second pass: output companies with all their positions
-        for company, positions in company_positions.items():
-            # Add company and location
-            company_para = new_doc.add_paragraph(style='Compact')
-            
-            if "|" in company:
-                company_name, location = [c.strip() for c in company.split("|", 1)]
-                company_run = company_para.add_run(f"{company_name} | {location}")
-            else:
+                # Add company
+                company_para = new_doc.add_paragraph(style='Compact')
                 company_run = company_para.add_run(company)
-            
-            company_run.bold = True
-            company_run.font.size = Pt(12)
-            company_run.font.name = "Calibri"
-            
-            # Set tab stop for date alignment
-            tab_position = Inches(8.5 - 0.5)  # Page width minus right margin
-            company_para.paragraph_format.tab_stops.add_tab_stop(tab_position, WD_TAB_ALIGNMENT.RIGHT)
-            
-            # If multiple positions, add date range spanning all positions
-            if len(positions) > 1:
-                logging.info(f"Processing multiple positions for company: {company}")
-                logging.info(f"Positions before sorting: {positions}")
+                company_run.bold = True
+                company_run.font.size = Pt(11)
+                company_run.font.name = "Calibri"
                 
-                # Sort positions by date (assuming format MM/YYYY – MM/YYYY)
-                positions.sort(key=lambda x: parse_date(x[1].split("–")[0].strip()), reverse=True)
-                logging.info(f"Positions after sorting: {positions}")
-                
-                # Fix: Parse dates more carefully to handle edge cases
-                all_start_dates = []
-                all_end_dates = []
-                all_start_tuples = []  # For accurate sorting
-                
-                logging.info("Extracting start and end dates from each position:")
-                for position, date_range, _ in positions:
-                    logging.info(f"  Position: {position}, Date range: {date_range}")
-                    if "–" in date_range:
-                        parts = date_range.split("–")
-                        if len(parts) == 2:
-                            start_date = parts[0].strip()
-                            end_date = parts[1].strip()
-                            all_start_dates.append(start_date)
-                            all_end_dates.append(end_date)
-                            all_start_tuples.append((start_date, parse_date(start_date)))
-                            logging.info(f"    Extracted start date: {start_date}, end date: {end_date}")
-                        else:
-                            logging.warning(f"    Invalid date format: {date_range}")
-                    else:
-                        logging.warning(f"    No date separator found in: {date_range}")
-                
-                # Find earliest start date and latest end date
-                logging.info(f"All start dates: {all_start_dates}")
-                logging.info(f"All end dates: {all_end_dates}")
-                
-                if all_start_dates and all_end_dates:
-                    # Sort dates using the parse_date function
-                    all_start_tuples.sort(key=lambda x: x[1])  # Sort by the parsed tuple
-                    earliest_date = all_start_tuples[0][0]  # Get the original date string
-                    
-                    # Sort end dates
-                    end_date_tuples = [(date, parse_date(date)) for date in all_end_dates]
-                    end_date_tuples.sort(key=lambda x: x[1], reverse=True)
-                    latest_date = end_date_tuples[0][0]  # Get the original date string
-                    
-                    date_range = f"{earliest_date} – {latest_date}"
-                    logging.info(f"Final date range: {date_range}")
-                    
-                    date_run = company_para.add_run("\t" + date_range)
-                    date_run.bold = True  # Make company-level date bold
-                    date_run.font.size = Pt(11)
-                    date_run.font.name = "Calibri"
-                else:
-                    # Fallback to original method if parsing fails
-                    logging.warning("Using fallback method for date extraction")
-                    earliest_date = positions[-1][1].split("–")[0].strip()
-                    latest_date = positions[0][1].split("–")[1].strip()
-                    
-                    logging.info(f"Fallback earliest date: {earliest_date}")
-                    logging.info(f"Fallback latest date: {latest_date}")
-                    
-                    date_range = f"{earliest_date} – {latest_date}"
-                    logging.info(f"Fallback date range: {date_range}")
-                    
-                    date_run = company_para.add_run("\t" + date_range)
-                    date_run.bold = True  # Make company-level date bold
-                    date_run.font.size = Pt(11)
-                    date_run.font.name = "Calibri"
-            else:
-                # Just one position, add its date
-                date_run = company_para.add_run("\t" + positions[0][1])
-                date_run.bold = True  # Make company-level date bold
-                date_run.font.size = Pt(11)
-                date_run.font.name = "Calibri"
-            
-            # Add each position
-            for position, date, bullets in positions:
                 # Add position
                 position_para = new_doc.add_paragraph(style='Compact')
+                position_para.paragraph_format.left_indent = Inches(0.25)
                 position_run = position_para.add_run(position)
                 position_run.italic = True
                 position_run.font.size = Pt(11)
                 position_run.font.name = "Calibri"
                 
-                # Add date for individual position if multiple positions
-                if len(positions) > 1:
-                    position_para.paragraph_format.tab_stops.add_tab_stop(tab_position, WD_TAB_ALIGNMENT.RIGHT)
-                    date_run = position_para.add_run("\t" + date)
-                    date_run.italic = True  # Keep italic
-                    date_run.font.size = Pt(11)
-                    date_run.font.name = "Calibri"
+                # Add bullets
+                for bullet in bullets:
+                    add_bullet_point(new_doc, bullet)
+        
+        # Process remaining sections (education, volunteerism, other info)
+        education_lines = []
+        volunteerism_lines = []
+        other_info_lines = []
+        
+        in_education = False
+        in_volunteerism = False
+        in_other_info = False
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
                 
-                # Add bullets for this position
-                for bullet_text in bullets:
-                    add_bullet_point(new_doc, bullet_text)
+            if line == "<EDUCATION>":
+                in_education = True
+                in_volunteerism = False
+                in_other_info = False
+                continue
+                
+            if line == "<VOLUNTEERISM>":
+                in_education = False
+                in_volunteerism = True
+                in_other_info = False
+                continue
+                
+            if line == "<OTHER RELEVANT INFORMATION>":
+                in_education = False
+                in_volunteerism = False
+                in_other_info = True
+                continue
+                
+            if line.startswith("<"):
+                in_education = False
+                in_volunteerism = False
+                in_other_info = False
+                continue
+                
+            if in_education:
+                education_lines.append(line)
+            elif in_volunteerism:
+                volunteerism_lines.append(line)
+            elif in_other_info:
+                other_info_lines.append(line)
         
         # Add education section
-        spacing_para = new_doc.add_paragraph(style='Compact')
-        spacing_para.paragraph_format.space_after = Pt(2)
-        add_section_heading(new_doc, "EDUCATION")
-        
-        # Extract education info
-        education_lines = []
-        in_education = False
-        for line in lines:
-            if line.strip() == "<EDUCATION>":
-                in_education = True
-                continue
-            if in_education and line.strip() and not line.startswith("<"):
-                education_lines.append(line.strip())
-            if in_education and line.startswith("<") and line.strip() != "<EDUCATION>":
-                in_education = False
-        
-        # Create education table
         if education_lines:
-            for i in range(0, len(education_lines), 3):
-                if i+2 < len(education_lines):
-                    # Add institution and location with bullet
+            add_section_heading(new_doc, "EDUCATION")
+            
+            i = 0
+            while i < len(education_lines):
+                # Process each education entry (typically 3 lines per entry)
+                if i + 2 < len(education_lines):
+                    # University and location
                     edu_para = new_doc.add_paragraph(style='Compact')
+                    edu_run = edu_para.add_run(education_lines[i])
+                    edu_run.bold = True
+                    edu_run.font.size = Pt(11)
+                    edu_run.font.name = "Calibri"
                     
-                    # Add bullet
-                    bullet_run = edu_para.add_run("• ")
-                    bullet_run.font.size = Pt(11)
-                    bullet_run.font.name = "Calibri"
-                    
-                    # Add institution and location
-                    inst_run = edu_para.add_run(education_lines[i] + "  ")
-                    inst_run.bold = True
-                    inst_run.font.size = Pt(11)
-                    inst_run.font.name = "Calibri"
-                    
-                    # Add date right-aligned
-                    if "|" in education_lines[i+2]:
-                        date = education_lines[i+2].split("|")[1].strip()
-                        edu_para.paragraph_format.tab_stops.add_tab_stop(tab_position, WD_TAB_ALIGNMENT.RIGHT)
-                        date_run = edu_para.add_run("\t" + date)
-                        date_run.bold = True  # Make education date bold
-                        date_run.font.size = Pt(11)
-                        date_run.font.name = "Calibri"
-                    
-                    # Add degree on next line with indentation
+                    # Degree
                     degree_para = new_doc.add_paragraph(style='Compact')
                     degree_para.paragraph_format.left_indent = Inches(0.25)
                     degree_run = degree_para.add_run(education_lines[i+1])
                     degree_run.font.size = Pt(11)
                     degree_run.font.name = "Calibri"
                     
-                    # Add GPA on next line with indentation
-                    if "GPA" in education_lines[i+2]:
-                        gpa = education_lines[i+2].split("|")[0].strip() if "|" in education_lines[i+2] else education_lines[i+2]
-                        gpa_para = new_doc.add_paragraph(style='Compact')
-                        gpa_para.paragraph_format.left_indent = Inches(0.25)
-                        gpa_run = gpa_para.add_run(gpa)
-                        gpa_run.font.size = Pt(11)
-                        gpa_run.font.name = "Calibri"
+                    # GPA and dates
+                    gpa_para = new_doc.add_paragraph(style='Compact')
+                    gpa_para.paragraph_format.left_indent = Inches(0.25)
+                    gpa_run = gpa_para.add_run(education_lines[i+2])
+                    gpa_run.font.size = Pt(11)
+                    gpa_run.font.name = "Calibri"
+                    
+                    i += 3
+                else:
+                    # Handle any remaining lines
+                    edu_para = new_doc.add_paragraph(style='Compact')
+                    edu_run = edu_para.add_run(education_lines[i])
+                    edu_run.font.size = Pt(11)
+                    edu_run.font.name = "Calibri"
+                    i += 1
         
         # Add volunteerism section
-        volunteerism_lines = []
-        in_volunteerism = False
-        for line in lines:
-            if line.strip() == "<VOLUNTEERISM>":
-                in_volunteerism = True
-                continue
-            if in_volunteerism and line.strip() and not line.startswith("<"):
-                volunteerism_lines.append(line.strip())
-            if in_volunteerism and line.startswith("<") and line.strip() != "<VOLUNTEERISM>":
-                in_volunteerism = False
-        
         if volunteerism_lines:
-            spacing_para = new_doc.add_paragraph(style='Compact')
-            spacing_para.paragraph_format.space_after = Pt(2)
             add_section_heading(new_doc, "VOLUNTEERISM")
             
-            for i in range(0, len(volunteerism_lines), 2):
-                if i+1 < len(volunteerism_lines):
-                    # Add organization and date with bullet
+            i = 0
+            while i < len(volunteerism_lines):
+                # Process each volunteerism entry (typically 2 lines per entry)
+                if i + 1 < len(volunteerism_lines):
+                    # Organization and dates
                     vol_para = new_doc.add_paragraph(style='Compact')
+                    vol_run = vol_para.add_run(volunteerism_lines[i])
+                    vol_run.bold = True
+                    vol_run.font.size = Pt(11)
+                    vol_run.font.name = "Calibri"
                     
-                    # Add bullet
-                    bullet_run = vol_para.add_run("• ")
-                    bullet_run.font.size = Pt(11)
-                    bullet_run.font.name = "Calibri"
-                    
-                    # Add organization and date
-                    if "|" in volunteerism_lines[i]:
-                        org, date = [v.strip() for v in volunteerism_lines[i].split("|", 1)]
-                        org_run = vol_para.add_run(org + "  ")
-                        org_run.bold = True
-                        org_run.font.size = Pt(11)
-                        org_run.font.name = "Calibri"
-                        
-                        vol_para.paragraph_format.tab_stops.add_tab_stop(tab_position, WD_TAB_ALIGNMENT.RIGHT)
-                        date_run = vol_para.add_run("\t" + date)
-                        date_run.bold = True  # Make volunteerism date bold
-                        date_run.font.size = Pt(11)
-                        date_run.font.name = "Calibri"
-                    else:
-                        org_run = vol_para.add_run(volunteerism_lines[i])
-                        org_run.bold = True
-                        org_run.font.size = Pt(11)
-                        org_run.font.name = "Calibri"
-                    
-                    # Add description on next line with indentation
+                    # Description
                     desc_para = new_doc.add_paragraph(style='Compact')
                     desc_para.paragraph_format.left_indent = Inches(0.25)
                     desc_run = desc_para.add_run(volunteerism_lines[i+1])
                     desc_run.font.size = Pt(11)
                     desc_run.font.name = "Calibri"
+                    
+                    i += 2
+                else:
+                    # Handle any remaining lines
+                    vol_para = new_doc.add_paragraph(style='Compact')
+                    vol_run = vol_para.add_run(volunteerism_lines[i])
+                    vol_run.font.size = Pt(11)
+                    vol_run.font.name = "Calibri"
+                    i += 1
         
         # Add other relevant information section
-        other_info_lines = []
-        in_other_info = False
-        for line in lines:
-            if line.strip() == "<OTHER RELEVANT INFORMATION>":
-                in_other_info = True
-                continue
-            if in_other_info and line.strip() and not line.startswith("<"):
-                other_info_lines.append(line.strip())
-            if in_other_info and line.startswith("<") and line.strip() != "<OTHER RELEVANT INFORMATION>":
-                in_other_info = False
-
         if other_info_lines:
-            spacing_para = new_doc.add_paragraph(style='Compact')
-            spacing_para.paragraph_format.space_after = Pt(2)
             add_section_heading(new_doc, "OTHER RELEVANT INFORMATION")
             
-            # Process each line as a separate bullet point
             for line in other_info_lines:
                 if ":" in line:
                     # This line has a category and details
@@ -905,14 +855,14 @@ def rewrite_resume(
                     # Add text
                     text_run = para.add_run(line.strip())
                     text_run.font.size = Pt(11)
-                    text_run.font.name = "Calibri"    
-
+                    text_run.font.name = "Calibri"
+        
         # Save the document
         new_doc.save(output_path)
         return True
         
     except Exception as e:
-        print(f"Resume rewriting failed: {e}. Falling back to original resume.")
+        logging.error(f"Resume rewriting failed: {e}. Falling back to original resume.")
         # If there's an error, copy the original resume to the output path
         if os.path.exists(resume_path):
             shutil.copy(resume_path, output_path)
