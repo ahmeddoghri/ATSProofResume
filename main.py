@@ -13,6 +13,8 @@ from resume_processing import rewrite_resume, generate_recommendations
 import re
 from openai import OpenAI
 from typing import List
+from interview_questions import generate_interview_questions
+import logging
 
 from openai import OpenAI
 from typing import List, Dict
@@ -30,6 +32,9 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Global dictionary to store progress status keyed by job ID
 progress_status = {}
+
+# Define the jobs_db dictionary if it doesn't exist
+jobs_db = {}
 
 
 
@@ -96,11 +101,15 @@ def process_resume_job(
             temperature=temperature,
             api_key=api_key
         )
-        progress_status[job_id] = 70
+        progress_status[job_id] = 60
         
+        # Extract resume text for further processing
+        resume_text = _extract_text_from_docx(resume_path)
+        
+        # Generate recommendations
         recommendations_text = generate_recommendations(
             job_data.get("job_text", ""), 
-            _extract_text_from_docx(resume_path),
+            resume_text,
             model=model,
             temperature=temperature,
             api_key=api_key
@@ -108,6 +117,46 @@ def process_resume_job(
         recommendations_path = os.path.join(company_dir, "recommendations.txt")
         with open(recommendations_path, "w", encoding="utf-8") as f:
             f.write(recommendations_text)
+        progress_status[job_id] = 75
+        
+        # Generate interview questions
+        company_name = job_data.get("company", "Unknown Company")
+        job_description = job_data.get("job_text", "")
+        
+        # Try to generate interview questions
+        try:
+            questions = generate_interview_questions(
+                job_description=job_description,
+                resume_text=resume_text,
+                company_name=company_name,
+                api_key=api_key,
+                model=model
+            )
+            
+            # Format questions as text
+            questions_text = "SMART INTERVIEW QUESTIONS\n"
+            questions_text += "=======================\n\n"
+            questions_text += "Use these questions during your interview to demonstrate your knowledge and interest.\n\n"
+            
+            for category, question_list in questions.items():
+                questions_text += f"{category.upper()}\n"
+                questions_text += "-" * len(category) + "\n"
+                for i, question in enumerate(question_list, 1):
+                    questions_text += f"{i}. {question}\n"
+                questions_text += "\n"
+            
+            # Save questions to file
+            questions_path = os.path.join(company_dir, "interview_questions.txt")
+            with open(questions_path, "w", encoding="utf-8") as f:
+                f.write(questions_text)
+                
+        except Exception as e:
+            print(f"Error generating interview questions: {e}")
+            # Create a basic questions file if generation fails
+            questions_path = os.path.join(company_dir, "interview_questions.txt")
+            with open(questions_path, "w", encoding="utf-8") as f:
+                f.write("Interview questions could not be generated. Please try again later.")
+        
         progress_status[job_id] = 85
         
         # Step 3: Bundle all outputs into a ZIP file
@@ -123,7 +172,8 @@ def process_resume_job(
                 "job_screenshot.png": os.path.join(company_dir, "job_screenshot.png"),
                 "original_resume.docx": resume_path,
                 "formatted_resume.docx": formatted_resume_path,
-                "recommendations.txt": recommendations_path
+                "recommendations.txt": recommendations_path,
+                "interview_questions.txt": questions_path
             }
             
             for arc_name, file_path in files_to_zip.items():
@@ -533,5 +583,80 @@ def get_model_category(model_id):
         return "Standard"
     else:
         return "Other"
+
+@app.post("/generate_questions/")
+async def generate_questions(
+    job_id: str = Form(...),
+    model: str = Form("gpt-4o")
+):
+    """Generate interview questions based on job description and resume"""
+    try:
+        # Get job details from the database
+        job = jobs_db.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        # Extract company name from job description
+        company_name = ""
+        job_description = job.get("job_description", "")
+        resume_text = job.get("resume_text", "")
+        
+        # Try to extract company name from job description
+        company_match = re.search(r"(?:at|for|with)\s+([A-Z][A-Za-z0-9\s&]+)(?:\.|\,|\s|$)", job_description)
+        if company_match:
+            company_name = company_name or company_match.group(1).strip()
+        
+        if not company_name:
+            # Fallback: ask the model to extract the company name
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "Extract the company name from this job description. Return only the company name."},
+                    {"role": "user", "content": job_description[:1000]}  # Use first 1000 chars for efficiency
+                ],
+                temperature=0.1
+            )
+            company_name = response.choices[0].message.content.strip()
+        
+        # Generate interview questions
+        questions = generate_interview_questions(
+            job_description=job_description,
+            resume_text=resume_text,
+            company_name=company_name,
+            api_key=os.getenv("OPENAI_API_KEY"),
+            model=model
+        )
+        
+        # Format questions as text
+        questions_text = "SMART INTERVIEW QUESTIONS\n"
+        questions_text += "=======================\n\n"
+        questions_text += "Use these questions during your interview to demonstrate your knowledge and interest.\n\n"
+        
+        for category, question_list in questions.items():
+            questions_text += f"{category.upper()}\n"
+            questions_text += "-" * len(category) + "\n"
+            for i, question in enumerate(question_list, 1):
+                questions_text += f"{i}. {question}\n"
+            questions_text += "\n"
+        
+        # Save questions to file in the company directory
+        company_dir = os.path.join(OUTPUT_DIR, sanitize_filename(company_name))
+        os.makedirs(company_dir, exist_ok=True)
+        questions_path = os.path.join(company_dir, "interview_questions.txt")
+        
+        with open(questions_path, "w", encoding="utf-8") as f:
+            f.write(questions_text)
+        
+        # Update job in database with questions
+        job["interview_questions"] = questions
+        job["interview_questions_text"] = questions_text
+        jobs_db[job_id] = job
+        
+        return {"success": True, "questions": questions}
+        
+    except Exception as e:
+        logging.error(f"Error generating interview questions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating questions: {str(e)}")
 
     
