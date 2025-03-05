@@ -1,3 +1,6 @@
+"""
+Scrapes job posting text from a given URL.
+"""
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -10,6 +13,7 @@ from selenium.webdriver.chrome.options import Options
 from openai import OpenAI
 
 class JobPostingScraper:
+    """Scrapes job posting text from a given URL.  """
     def __init__(self, model_name="gpt-4o", temperature=0.0, api_key=None):
         """
         Initialize the scraper with GPT-4o for reliable extraction.
@@ -40,6 +44,7 @@ class JobPostingScraper:
         self.json_parser = JsonOutputParser()
 
     def scrape_job_posting(self, url: str) -> dict:
+        """Scrapes job posting text from a given URL."""
         try:
             response = requests.get(url, headers={"User-Agent": self.user_agent})
             response.raise_for_status()
@@ -164,6 +169,7 @@ class JobPostingScraper:
         return result  # dict with keys 'company', 'job_title', 'job_text'
 
     def capture_screenshot(self, url: str, output_path: str) -> None:
+        """Captures a screenshot of a given URL."""
         chrome_options = Options()
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--disable-gpu")

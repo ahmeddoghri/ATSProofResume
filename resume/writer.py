@@ -21,6 +21,17 @@ class ResumeWriter:
         self.parser = ResumeParser()
 
     def document_writer(self, resume_text, output_path, resume_path):
+        """
+        Creates a formatted resume document from parsed text.
+        
+        Args:
+            resume_text: The parsed resume text with section markers
+            output_path: Path where the formatted document will be saved
+            resume_path: Path to the original resume (for fallback)
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
         try:
             doc = Document()
             self._set_margins(doc)
@@ -81,6 +92,7 @@ class ResumeWriter:
     # --- Helper methods ---
 
     def _set_margins(self, doc):
+        """Set document margins for better space utilization."""
         for section in doc.sections:
             section.top_margin = Inches(0.3)
             section.bottom_margin = Inches(0.3)
@@ -88,6 +100,7 @@ class ResumeWriter:
             section.right_margin = Inches(0.5)
 
     def _add_compact_style(self, doc):
+        """Add a style for paragraphs with reduced spacing."""
         styles = doc.styles
         compact = styles.add_style("Compact", WD_STYLE_TYPE.PARAGRAPH)
         compact.base_style = styles["Normal"]
@@ -98,12 +111,14 @@ class ResumeWriter:
         p_format.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
 
     def _extract_field(self, lines, marker):
+        """Extract a single field value following a marker."""
         for i, line in enumerate(lines):
             if line.strip() == marker and i + 1 < len(lines):
                 return lines[i + 1].strip()
         return ""
 
     def _add_header(self, doc, name, contact):
+        """Add the resume header with name and contact information."""
         header_para = doc.add_paragraph(style="Compact")
         name_run = header_para.add_run(name)
         name_run.bold = True
@@ -120,12 +135,14 @@ class ResumeWriter:
         spacing_para.paragraph_format.space_after = Pt(2)
 
     def _add_simple_paragraph(self, doc, text):
+        """Add a simple paragraph with consistent formatting."""
         para = doc.add_paragraph(text, style="Compact")
         run = para.runs[0]
         run.font.size = Pt(11)
         run.font.name = "Calibri"
 
     def _extract_skills(self, lines):
+        """Extract skills from the skills section."""
         skills = []
         in_skills = False
         for line in lines:
@@ -144,6 +161,7 @@ class ResumeWriter:
         return skills
 
     def _add_skills_section(self, doc, skills):
+        """Add the skills section in a two-column format."""
         if not skills:
             return
         skills_per_column = (len(skills) + 1) // 2
@@ -171,6 +189,7 @@ class ResumeWriter:
                 run.font.name = "Calibri"
 
     def _extract_experience(self, lines):
+        """Extract work experience information."""
         company_positions = {}
         current_company = None
         i = 0
@@ -203,6 +222,7 @@ class ResumeWriter:
         return company_positions
 
     def _add_experience_section(self, doc, company_positions):
+        """Add the work experience section with companies and positions."""
         tab_position = Inches(8.0)  # Adjust for desired date alignment
         for company, positions in company_positions.items():
             company_para = doc.add_paragraph(style="Compact")
@@ -272,6 +292,7 @@ class ResumeWriter:
                     self.formatter.add_bullet_point(doc, bullet)
 
     def _extract_section_lines(self, lines, marker):
+        """Extract all lines from a specific section."""
         section_lines = []
         in_section = False
         for line in lines:
@@ -287,6 +308,7 @@ class ResumeWriter:
         return section_lines
 
     def _add_education_section(self, doc, edu_lines):
+        """Add the education section with institutions and degrees."""
         tab_position = Inches(8.0)  # Adjust for desired date alignment
         for i in range(0, len(edu_lines), 3):
             if i + 2 < len(edu_lines):
@@ -324,6 +346,7 @@ class ResumeWriter:
                     run.font.name = "Calibri"
 
     def _add_volunteerism_section(self, doc, vol_lines):
+        """Add the volunteerism section with organizations and descriptions."""
         tab_position = Inches(8.0)
         for i in range(0, len(vol_lines), 2):
             if i + 1 < len(vol_lines):

@@ -13,7 +13,16 @@ class DocumentFormatter:
     
     @staticmethod
     def add_section_heading(doc, text):
-        """Add a section heading with consistent formatting and reduced spacing"""
+        """
+        Add a section heading with consistent formatting and reduced spacing.
+        
+        Args:
+            doc: The document object to add the heading to
+            text: The heading text
+            
+        Returns:
+            The created paragraph object
+        """
         heading = doc.add_paragraph(style='Compact')
         heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
         heading_run = heading.add_run(text)
@@ -42,7 +51,17 @@ class DocumentFormatter:
 
     @staticmethod
     def add_bullet_point(doc, text, indent_level=0):
-        """Add a bullet point with consistent formatting and reduced spacing"""
+        """
+        Add a bullet point with consistent formatting and reduced spacing.
+        
+        Args:
+            doc: The document object to add the bullet point to
+            text: The bullet point text
+            indent_level: The indentation level (default: 0)
+            
+        Returns:
+            The created paragraph object
+        """
         bullet = doc.add_paragraph(style='Compact')  # Use compact style
         bullet.paragraph_format.left_indent = Inches(0.25 + (0.25 * indent_level))
         bullet.paragraph_format.first_line_indent = Inches(-0.25)

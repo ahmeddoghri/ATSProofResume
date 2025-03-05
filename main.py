@@ -8,8 +8,7 @@ import uuid
 import asyncio
 from urllib.parse import urlparse
 from docx import Document
-from job_scraper import JobPostingScraper  # Updated import
-from resume_processing import rewrite_resume # TODO : remove 
+from job_scraper import JobPostingScraper
 from resume.processor import ResumeProcessor
 from recommendations import generate_recommendations
 from interview_questions import generate_interview_questions
@@ -20,10 +19,7 @@ import logging
 
 from openai import OpenAI
 from typing import List, Dict
-from functools import lru_cache
 import asyncio
-from datetime import datetime, timedelta
-from functools import wraps
 import time
 
 
@@ -41,10 +37,13 @@ jobs_db = {}
 
 
 def timed_cache(seconds: int):
+    """Decorator to cache function results for a specified duration."""
     def wrapper_decorator(func):
+        """Wrapper function to cache results."""
         cache = {}
         
         async def wrapped_func(*args, **kwargs):
+            """Async wrapper function to cache results."""
             key = str(args) + str(kwargs)
             now = time.time()
             
@@ -65,6 +64,7 @@ def timed_cache(seconds: int):
 
 @app.websocket("/ws/progress/{job_id}")
 async def websocket_progress(websocket: WebSocket, job_id: str):
+    """WebSocket endpoint for progress updates."""
     await websocket.accept()
     while True:
         progress = progress_status.get(job_id, 0)
@@ -105,15 +105,6 @@ def process_resume_job(
             temperature=temperature,
         )
             
-            
-        # rewrite_resume(
-        #     resume_path, 
-        #     job_data.get("job_text", ""), 
-        #     formatted_resume_path,
-        #     model=model,
-        #     temperature=temperature,
-        #     api_key=api_key
-        # )
         progress_status[job_id] = 60
         
         # Extract resume text for further processing
@@ -205,10 +196,12 @@ def process_resume_job(
 
 @app.get("/", response_class=HTMLResponse)
 async def landing_page(request: Request):
+    """Landing page for the application."""
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
+    """Favicon for the application."""
     return FileResponse(os.path.join("static", "favicon.ico"))
 
 def sanitize_filename(filename: str) -> str:
@@ -701,4 +694,3 @@ def format_markdown_for_text(content):
     
     return content
 
-    
