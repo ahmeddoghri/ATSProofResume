@@ -1,20 +1,140 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resume Processing Complete</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom styles */
+        .gradient-bg {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+        
+        .btn-secondary {
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .success-icon {
+            animation: bounce 1s ease-in-out;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+            40% {transform: translateY(-20px);}
+            60% {transform: translateY(-10px);}
+        }
+        
+        .feature-card {
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+    </style>
 </head>
-<body>
-    <h2>Processing Complete! 🎉</h2>
-    <p>Your resume has been processed successfully. Click the button below to download your updated resume package.</p>
-
-    <a href="{{ download_url }}" download>
-        <button>Download Processed Resume</button>
-    </a>
-
-    <br><br>
-
-    <a href="/">
-        <button>Format Another Resume</button>
-    </a>
+<body class="gradient-bg min-h-screen font-sans text-gray-800 py-8 px-4">
+    <div class="max-w-3xl mx-auto">
+        <div class="card p-8 text-center">
+            <div class="success-icon inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6">
+                <svg class="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            
+            <h1 class="text-3xl font-bold text-indigo-800 mb-2">Processing Complete!</h1>
+            <p class="text-gray-600 mb-8">Your resume has been optimized for ATS systems and is ready to download.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div class="feature-card bg-blue-50 p-4">
+                    <div class="text-blue-500 mb-2">
+                        <i class="fas fa-robot text-xl"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-800 mb-1">ATS Optimized</h3>
+                    <p class="text-sm text-gray-600">Formatted for applicant tracking systems</p>
+                </div>
+                
+                <div class="feature-card bg-purple-50 p-4">
+                    <div class="text-purple-500 mb-2">
+                        <i class="fas fa-bullseye text-xl"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-800 mb-1">Job Targeted</h3>
+                    <p class="text-sm text-gray-600">Tailored to match job requirements</p>
+                </div>
+                
+                <div class="feature-card bg-green-50 p-4">
+                    <div class="text-green-500 mb-2">
+                        <i class="fas fa-check-double text-xl"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-800 mb-1">Interview Ready</h3>
+                    <p class="text-sm text-gray-600">Includes interview preparation materials</p>
+                </div>
+            </div>
+            
+            <div class="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-4">
+                <a href="{{ download_url }}" download class="btn-primary text-white font-medium py-3 px-6 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 inline-flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Download Resume Package
+                </a>
+                
+                <a href="/" class="btn-secondary bg-white border border-gray-300 text-gray-700 font-medium py-3 px-6 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 inline-flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
+                    </svg>
+                    Format Another Resume
+                </a>
+            </div>
+            
+            <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <h3 class="text-sm font-medium text-yellow-800 mb-2">
+                    <i class="fas fa-info-circle mr-2"></i>Download Instructions
+                </h3>
+                <p class="text-xs text-yellow-700 mb-2">
+                    If your browser flags the download as potentially unsafe, you can:
+                </p>
+                <div class="text-xs text-yellow-700 space-y-1">
+                    <p>• Click "Keep" or "Download anyway" in the browser prompt</p>
+                    <p>• The file is safe and generated specifically for you</p>
+                    <p>• This warning appears because some browsers are cautious about ZIP files</p>
+                </div>
+            </div>
+            
+            <div class="mt-8 pt-6 border-t border-gray-200">
+                <p class="text-sm text-gray-500">Your resume package includes a formatted resume, recommendations, and interview questions.</p>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

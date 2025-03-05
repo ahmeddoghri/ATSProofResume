@@ -17,6 +17,9 @@ import tempfile
 import uuid
 import shutil
 import os
+import time
+from PIL import Image, ImageDraw, ImageFont
+from webdriver_manager.chrome import ChromeDriverManager
 
 
 class JobPostingScraper:
@@ -227,44 +230,69 @@ class JobPostingScraper:
             self.logger.error(f"Fallback extraction failed: {inner_e}")
             return {"company": "Unknown_Company", "job_title": "Unknown", "job_text": job_text}
 
-    def capture_screenshot(self, url: str, output_path: str) -> None:
+    def capture_screenshot(self, url, output_path):
         """
-        Captures a screenshot of a given URL.
-        
-        Args:
-            url: URL to capture
-            output_path: Path to save the screenshot
+        Captures a full-page screenshot of the job posting page.
+        Scrolls to capture all content and falls back to a placeholder if WebDriver is not available.
         """
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        
-        # Check if we should use a remote WebDriver
-        selenium_remote_url = os.environ.get("SELENIUM_REMOTE_URL")
-        
-        if selenium_remote_url:
-            # Use remote WebDriver
-            driver = webdriver.Remote(
-                command_executor=selenium_remote_url,
-                options=chrome_options
-            )
-        else:
-            # Use local WebDriver
-            service = Service(executable_path='/usr/bin/chromedriver')
-            driver = webdriver.Chrome(service=service, options=chrome_options)
-        
         try:
+            # Use webdriver_manager to automatically download and manage ChromeDriver
+            chrome_options = Options()
+            chrome_options.add_argument("--headless")
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            
+            # This will automatically download the appropriate ChromeDriver if needed
+            service = Service(ChromeDriverManager().install())
+            
+            driver = webdriver.Chrome(service=service, options=chrome_options)
             driver.get(url)
-            driver.implicitly_wait(5)
-            total_width = driver.execute_script("return document.body.scrollWidth")
+            
+            # Wait for page to load
+            time.sleep(3)
+            
+            # Get the dimensions of the page
+            total_width = driver.execute_script("return document.body.offsetWidth")
             total_height = driver.execute_script("return document.body.scrollHeight")
+            
+            # Set window size to capture everything
             driver.set_window_size(total_width, total_height)
-            driver.implicitly_wait(2)
+            
+            # Scroll through the page to ensure all lazy-loaded content is loaded
+            current_height = 0
+            while current_height < total_height:
+                driver.execute_script(f"window.scrollTo(0, {current_height});")
+                current_height += 500  # Scroll by 500px each time
+                time.sleep(0.2)  # Small delay to allow content to load
+            
+            # Scroll back to top
+            driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(0.5)
+            
+            # Take the screenshot
             driver.save_screenshot(output_path)
-        except Exception as e:
-            self.logger.error(f"Screenshot capture failed: {e}")
-            # Optionally, you can create a placeholder image here
-        finally:
             driver.quit()
+            logging.info(f"Full page screenshot captured and saved to {output_path}")
+            
+        except Exception as e:
+            logging.error(f"Failed to capture screenshot: {str(e)}")
+            # Create a placeholder image or skip screenshot
+            try:
+                # Try to import PIL - if it fails, create an empty file instead
+                try:
+                    from PIL import Image, ImageDraw
+                    # Create a simple placeholder image
+                    img = Image.new('RGB', (800, 400), color=(245, 247, 250))
+                    d = ImageDraw.Draw(img)
+                    d.text((400, 200), "Screenshot Unavailable", fill=(100, 100, 100), anchor="mm")
+                    img.save(output_path)
+                    logging.info(f"Created placeholder image at {output_path}")
+                except ImportError:
+                    # If PIL is not available, just create an empty file
+                    with open(output_path, "wb") as f:
+                        f.write(b"")
+                    logging.info(f"Created empty file at {output_path} (PIL not available)")
+            except Exception as img_error:
+                logging.error(f"Could not create placeholder image: {str(img_error)}")
+                # If we can't even create a placeholder, just skip this step
+                pass
