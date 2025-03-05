@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 from docx import Document
 from job_scraper import JobPostingScraper  # Updated import
 from resume_processing import rewrite_resume # TODO : remove 
-from resume_processing_updated import ResumeRewriter
+from resume.processor import ResumeProcessor
 from recommendations import generate_recommendations
 from interview_questions import generate_interview_questions
 import re
@@ -96,8 +96,8 @@ def process_resume_job(
         # Pass AI parameters to the processing functions
         formatted_resume_path = os.path.join(company_dir, "formatted_resume.docx")
         
-        resume_rewriter = ResumeRewriter(api_key=api_key)
-        resume_rewriter.rewrite_resume(
+        resume_rewriter = ResumeProcessor(api_key=api_key)
+        resume_rewriter.process_resume(
             resume_path, 
             job_data.get("job_text", ""), 
             formatted_resume_path,
