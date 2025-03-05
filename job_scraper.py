@@ -248,20 +248,3 @@ class JobPostingScraper:
             # Optionally, you can create a placeholder image here
         finally:
             driver.quit()
-
-    def update_model_config(self, model_name: str, temperature: float, api_key: str):
-        """
-        Updates the API key but keeps using GPT-4o for job scraping.
-        
-        Args:
-            model_name: Model name (ignored, always uses GPT-4o)
-            temperature: Temperature setting (ignored, always uses 0.0)
-            api_key: OpenAI API key
-        """
-        self.api_key = api_key
-        # Always use GPT-4o for job scraping regardless of the model selected
-        self.llm = ChatOpenAI(
-            model_name="gpt-4o",  # Force GPT-4o
-            temperature=0.0,      # Use 0 temperature
-            openai_api_key=api_key
-        )
