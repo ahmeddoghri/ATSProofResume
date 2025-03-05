@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from app.services import get_fallback_models, fetch_openai_models, clear_model_cache
 from app.tasks import process_resume_job
 from app.utils import sanitize_filename, format_markdown_for_text
+from app.state import progress_status, jobs_db, OUTPUT_DIR
 from urllib.parse import urlparse
 import os
 import uuid
@@ -11,22 +12,13 @@ import shutil
 import asyncio
 import re
 from openai import OpenAI
-from .tasks import process_resume_job
-from .utils import sanitize_filename
 from job_scraper import JobPostingScraper
 from interview_questions import generate_interview_questions
 import logging
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
-OUTPUT_DIR = "output"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-# Define global dictionaries if needed.
-progress_status = {}
-jobs_db = {}
-
-
 
 @router.get("/", response_class=HTMLResponse)
 async def landing_page(request: Request):
@@ -225,14 +217,47 @@ async def get_available_models(api_key: str = None, force_refresh: bool = False)
         print(f"Error in get_available_models: {e}")
         return JSONResponse(content={"models": get_fallback_models()})
     
+@router.get("/download/{filename}")
+async def download_file(filename: str):
+    """
+    Download a file from the output directory.
+    
+    Args:
+        filename: Name of the file to download
+        
+    Returns:
+        FileResponse: The requested file
+    """
+    file_path = os.path.join(OUTPUT_DIR, filename)
+    if not os.path.exists(file_path):
+        logging.error(f"File not found: {file_path}")
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    logging.info(f"Serving download file: {filename}")
+    return FileResponse(
+        path=file_path, 
+        filename=filename,
+        media_type="application/octet-stream"
+    )
+
 @router.websocket("/ws/progress/{job_id}")
 async def websocket_progress(websocket: WebSocket, job_id: str):
     """WebSocket endpoint for progress updates."""
     await websocket.accept()
-    while True:
-        progress = progress_status.get(job_id, 0)
-        await websocket.send_text(str(progress))
-        if progress >= 100:
-            break
-        await asyncio.sleep(1)
+    try:
+        logging.info(f"WebSocket connection established for job {job_id}")
+        while True:
+            progress = progress_status.get(job_id, 0)
+            logging.info(f"WebSocket sending progress for job {job_id}: {progress}")
+            await websocket.send_text(str(progress))
+            if progress >= 100 or progress == -1:  # Also exit on error
+                logging.info(f"Job {job_id} completed or failed with progress {progress}")
+                break
+            await asyncio.sleep(1)
+    except Exception as e:
+        logging.error(f"WebSocket error for job {job_id}: {e}")
+        try:
+            await websocket.close()
+        except:
+            pass
 
