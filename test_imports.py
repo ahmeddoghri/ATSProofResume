@@ -3,8 +3,9 @@ Test script to verify that all required packages can be imported.
 """
 import importlib
 import sys
+import os
 
-def test_imports():
+def test_imports(skip_app_modules=False):
     """Test that all required packages can be imported."""
     required_packages = [
         # Web Framework
@@ -30,14 +31,19 @@ def test_imports():
         # Utilities
         "dotenv",
         "pydantic",
-        
-        # Application modules
-        "app",
-        "resume",
-        "job_scraper",
-        "recommendations",
-        "interview_questions"
     ]
+    
+    # Add application modules only if not skipping them
+    if not skip_app_modules:
+        app_modules = [
+            # Application modules
+            "app",
+            "resume",
+            "job_scraper",
+            "recommendations",
+            "interview_questions"
+        ]
+        required_packages.extend(app_modules)
     
     # Special case for python-multipart which doesn't have a direct import
     try:
@@ -67,5 +73,7 @@ def test_imports():
         return True
 
 if __name__ == "__main__":
-    success = test_imports()
+    # Check if we should skip app modules (useful for Docker build)
+    skip_app = os.environ.get("SKIP_APP_MODULES", "").lower() in ("true", "1", "yes")
+    success = test_imports(skip_app_modules=skip_app)
     sys.exit(0 if success else 1) 

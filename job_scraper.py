@@ -12,6 +12,11 @@ from langchain_core.output_parsers.json import JsonOutputParser
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from openai import OpenAI
+from selenium.webdriver.chrome.service import Service
+import tempfile
+import uuid
+import shutil
+import os
 
 
 class JobPostingScraper:
@@ -234,7 +239,22 @@ class JobPostingScraper:
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--no-sandbox")
-        driver = webdriver.Chrome(options=chrome_options)
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        
+        # Check if we should use a remote WebDriver
+        selenium_remote_url = os.environ.get("SELENIUM_REMOTE_URL")
+        
+        if selenium_remote_url:
+            # Use remote WebDriver
+            driver = webdriver.Remote(
+                command_executor=selenium_remote_url,
+                options=chrome_options
+            )
+        else:
+            # Use local WebDriver
+            service = Service(executable_path='/usr/bin/chromedriver')
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+        
         try:
             driver.get(url)
             driver.implicitly_wait(5)
