@@ -5,6 +5,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import json
+import logging
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers.json import JsonOutputParser 
@@ -12,11 +13,18 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from openai import OpenAI
 
+
 class JobPostingScraper:
-    """Scrapes job posting text from a given URL.  """
+    """Scrapes job posting text from a given URL."""
+    
     def __init__(self, model_name="gpt-4o", temperature=0.0, api_key=None):
         """
         Initialize the scraper with GPT-4o for reliable extraction.
+        
+        Args:
+            model_name: Model name (always uses GPT-4o internally)
+            temperature: Temperature setting (always uses 0.0 internally)
+            api_key: OpenAI API key
         """
         self.user_agent = "Mozilla/5.0"
         self.api_key = api_key
@@ -42,13 +50,25 @@ class JobPostingScraper:
         )
         # Initialize the JSON output parser to force JSON output.
         self.json_parser = JsonOutputParser()
+        
+        # Set up logging
+        self.logger = logging.getLogger(__name__)
 
     def scrape_job_posting(self, url: str) -> dict:
-        """Scrapes job posting text from a given URL."""
+        """
+        Scrapes job posting text from a given URL.
+        
+        Args:
+            url: URL of the job posting
+            
+        Returns:
+            dict: Dictionary with company, job_title, and job_text keys
+        """
         try:
             response = requests.get(url, headers={"User-Agent": self.user_agent})
             response.raise_for_status()
         except requests.RequestException as e:
+            self.logger.error(f"Failed to fetch job posting: {e}")
             return {"company": "Unknown_Company", "job_title": "Unknown", "job_text": f"Failed to fetch job posting: {e}"}
         
         soup = BeautifulSoup(response.text, "html.parser")
@@ -61,23 +81,7 @@ class JobPostingScraper:
             input_data = {"job_posting_text": job_text[:4000]}  # Limit to first 4000 chars for extraction
             
             # More structured prompt with explicit JSON format
-            extraction_prompt = f"""
-            Extract the company name and job title from the following job posting text.
-            
-            Job Posting Text:
-            {input_data["job_posting_text"]}
-            
-            Instructions:
-            1. Identify the company that posted this job
-            2. Identify the exact job title
-            3. Return ONLY a valid JSON object with this exact format:
-            {{
-                "company": "Company Name Here",
-                "job_title": "Job Title Here"
-            }}
-            
-            Do not include any explanations, notes, or additional text. Only return the JSON object.
-            """
+            extraction_prompt = self._create_extraction_prompt(input_data["job_posting_text"])
             
             # Direct OpenAI call for more control
             client = OpenAI(api_key=self.api_key)
@@ -103,73 +107,129 @@ class JobPostingScraper:
                 
             except json.JSONDecodeError:
                 # Fallback if JSON parsing fails
-                print("JSON parsing failed, using regex extraction")
-                # Try to extract using regex as a fallback
-                company_match = re.search(r'"company"\s*:\s*"([^"]+)"', response.choices[0].message.content)
-                title_match = re.search(r'"job_title"\s*:\s*"([^"]+)"', response.choices[0].message.content)
-                
-                company = company_match.group(1) if company_match else "Unknown_Company"
-                job_title = title_match.group(1) if title_match else "Unknown"
-                
-                result = {
-                    "company": company,
-                    "job_title": job_title,
-                    "job_text": job_text
-                }
+                self.logger.warning("JSON parsing failed, using regex extraction")
+                result = self._extract_with_regex(response.choices[0].message.content, job_text)
                 
         except Exception as e:
-            print(f"Extraction failed: {e}")
+            self.logger.error(f"Extraction failed: {e}")
             # Try a simpler extraction approach as fallback
-            try:
-                # Look for common patterns in job postings
-                title_patterns = [
-                    r'<title>(.*?)</title>',
-                    r'<h1[^>]*>(.*?)</h1>',
-                    r'job title[:\s]*([^<\n]+)',
-                    r'position[:\s]*([^<\n]+)',
-                    r'role[:\s]*([^<\n]+)'
-                ]
-                
-                company_patterns = [
-                    r'company[:\s]*([^<\n]+)',
-                    r'at ([A-Z][A-Za-z0-9\s&]+)',
-                    r'join ([A-Z][A-Za-z0-9\s&]+)',
-                    r'about ([A-Z][A-Za-z0-9\s&]+)'
-                ]
-                
-                # Try to extract job title
-                job_title = "Unknown"
-                for pattern in title_patterns:
-                    matches = re.search(pattern, job_text, re.IGNORECASE)
-                    if matches:
-                        job_title = matches.group(1).strip()
-                        break
-                        
-                # Try to extract company
-                company = "Unknown_Company"
-                for pattern in company_patterns:
-                    matches = re.search(pattern, job_text, re.IGNORECASE)
-                    if matches:
-                        company = matches.group(1).strip()
-                        break
-                
-                return {
-                    "company": company,
-                    "job_title": job_title,
-                    "job_text": job_text
-                }
-                
-            except Exception as inner_e:
-                print(f"Fallback extraction failed: {inner_e}")
-                return {"company": "Unknown_Company", "job_title": "Unknown", "job_text": job_text}
+            result = self._fallback_extraction(job_text)
         
-        print("--------------------------------")
-        print("EXTRACTION RESULT")
-        print(result)
+        self.logger.info("EXTRACTION RESULT: %s", result)
         return result  # dict with keys 'company', 'job_title', 'job_text'
 
+    def _create_extraction_prompt(self, job_text):
+        """
+        Create the extraction prompt.
+        
+        Args:
+            job_text: Job posting text
+            
+        Returns:
+            str: Formatted prompt
+        """
+        return f"""
+        Extract the company name and job title from the following job posting text.
+        
+        Job Posting Text:
+        {job_text}
+        
+        Instructions:
+        1. Identify the company that posted this job
+        2. Identify the exact job title
+        3. Return ONLY a valid JSON object with this exact format:
+        {{
+            "company": "Company Name Here",
+            "job_title": "Job Title Here"
+        }}
+        
+        Do not include any explanations, notes, or additional text. Only return the JSON object.
+        """
+
+    def _extract_with_regex(self, content, job_text):
+        """
+        Extract company and job title using regex from failed JSON response.
+        
+        Args:
+            content: Content from the API response
+            job_text: Original job text
+            
+        Returns:
+            dict: Dictionary with company, job_title, and job_text keys
+        """
+        company_match = re.search(r'"company"\s*:\s*"([^"]+)"', content)
+        title_match = re.search(r'"job_title"\s*:\s*"([^"]+)"', content)
+        
+        company = company_match.group(1) if company_match else "Unknown_Company"
+        job_title = title_match.group(1) if title_match else "Unknown"
+        
+        return {
+            "company": company,
+            "job_title": job_title,
+            "job_text": job_text
+        }
+
+    def _fallback_extraction(self, job_text):
+        """
+        Extract company and job title using regex patterns as a fallback.
+        
+        Args:
+            job_text: Job posting text
+            
+        Returns:
+            dict: Dictionary with company, job_title, and job_text keys
+        """
+        try:
+            # Look for common patterns in job postings
+            title_patterns = [
+                r'<title>(.*?)</title>',
+                r'<h1[^>]*>(.*?)</h1>',
+                r'job title[:\s]*([^<\n]+)',
+                r'position[:\s]*([^<\n]+)',
+                r'role[:\s]*([^<\n]+)'
+            ]
+            
+            company_patterns = [
+                r'company[:\s]*([^<\n]+)',
+                r'at ([A-Z][A-Za-z0-9\s&]+)',
+                r'join ([A-Z][A-Za-z0-9\s&]+)',
+                r'about ([A-Z][A-Za-z0-9\s&]+)'
+            ]
+            
+            # Try to extract job title
+            job_title = "Unknown"
+            for pattern in title_patterns:
+                matches = re.search(pattern, job_text, re.IGNORECASE)
+                if matches:
+                    job_title = matches.group(1).strip()
+                    break
+                    
+            # Try to extract company
+            company = "Unknown_Company"
+            for pattern in company_patterns:
+                matches = re.search(pattern, job_text, re.IGNORECASE)
+                if matches:
+                    company = matches.group(1).strip()
+                    break
+            
+            return {
+                "company": company,
+                "job_title": job_title,
+                "job_text": job_text
+            }
+            
+        except Exception as inner_e:
+            self.logger.error(f"Fallback extraction failed: {inner_e}")
+            return {"company": "Unknown_Company", "job_title": "Unknown", "job_text": job_text}
+
     def capture_screenshot(self, url: str, output_path: str) -> None:
-        """Captures a screenshot of a given URL."""
+        """
+        Captures a screenshot of a given URL.
+        
+        Args:
+            url: URL to capture
+            output_path: Path to save the screenshot
+        """
         chrome_options = Options()
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--disable-gpu")
@@ -184,7 +244,7 @@ class JobPostingScraper:
             driver.implicitly_wait(2)
             driver.save_screenshot(output_path)
         except Exception as e:
-            print(f"Screenshot capture failed: {e}")
+            self.logger.error(f"Screenshot capture failed: {e}")
             # Optionally, you can create a placeholder image here
         finally:
             driver.quit()
@@ -192,6 +252,11 @@ class JobPostingScraper:
     def update_model_config(self, model_name: str, temperature: float, api_key: str):
         """
         Updates the API key but keeps using GPT-4o for job scraping.
+        
+        Args:
+            model_name: Model name (ignored, always uses GPT-4o)
+            temperature: Temperature setting (ignored, always uses 0.0)
+            api_key: OpenAI API key
         """
         self.api_key = api_key
         # Always use GPT-4o for job scraping regardless of the model selected
