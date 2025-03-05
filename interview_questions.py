@@ -3,7 +3,7 @@ Generates interview questions based on job description and resume.
 """
 import logging
 from openai import OpenAI
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 import json
 import re
 
@@ -41,10 +41,10 @@ def generate_interview_questions(
         Company: {company_name}
         
         Job Description:
-        {job_description[:3000]}  # Limit length to avoid token issues
+        {job_description[:4000]}  # Limit length to avoid token issues
         
         Candidate's Resume:
-        {resume_text[:3000]}  # Limit length to avoid token issues
+        {resume_text[:4000]}  # Limit length to avoid token issues
         
         Generate 5 questions in each of these categories:
         

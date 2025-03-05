@@ -2,16 +2,9 @@
 Handles AI-powered rewriting of resumes
 """
 from docx import Document
-from docx.shared import Pt, Inches
-
-from docx import Document
-from docx.enum.text import WD_TAB_ALIGNMENT
 import shutil
 from openai import OpenAI
 import os
-
-from docx.enum.text import WD_TAB_ALIGNMENT, WD_PARAGRAPH_ALIGNMENT
-from docx.enum.style import WD_STYLE_TYPE
 import logging
 from resume.writer import ResumeWriter
 
