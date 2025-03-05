@@ -107,23 +107,15 @@ def process_resume_job(
         zip_filepath = os.path.join(OUTPUT_DIR, zip_filename)
         logging.info(f"Creating ZIP file at: {zip_filepath}")
         
-        with zipfile.ZipFile(zip_filepath, "w") as zipf:
-            # Add all files to the ZIP
-            files_to_zip = {
-                "job_posting.txt": os.path.join(company_dir, f"{job_title}.txt"),
-                "job_screenshot.png": os.path.join(company_dir, "job_screenshot.png"),
-                "original_resume.docx": resume_path,
-                "formatted_resume.docx": formatted_resume_path,
-                "recommendations.txt": recommendations_path,
-                "interview_questions.txt": questions_path
-            }
-            
-            for arc_name, file_path in files_to_zip.items():
-                if os.path.exists(file_path):
-                    logging.info(f"Adding to ZIP: {arc_name} from {file_path}")
-                    zipf.write(file_path, arc_name)
-                else:
-                    logging.warning(f"File not found for ZIP: {file_path}")
+        # Create a proper ZIP file with appropriate compression
+        with zipfile.ZipFile(zip_filepath, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Add files to the ZIP with proper relative paths
+            for root, _, files in os.walk(company_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    # Create relative path for the ZIP
+                    arcname = os.path.relpath(file_path, os.path.dirname(company_dir))
+                    zipf.write(file_path, arcname)
 
         logging.info(f"ZIP file created: {zip_filepath} (exists: {os.path.exists(zip_filepath)})")
         

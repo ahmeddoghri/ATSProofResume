@@ -80,7 +80,13 @@ async def upload_resume(
     
     # Capture a screenshot of the job posting.
     screenshot_path = os.path.join(company_dir, "job_screenshot.png")
-    job_scraper.capture_screenshot(job_link, screenshot_path)
+    try:
+        job_scraper.capture_screenshot(job_link, screenshot_path)
+    except Exception as e:
+        logging.error(f"Failed to capture screenshot: {str(e)}")
+        # Create an empty file to maintain the expected file structure
+        with open(screenshot_path, "wb") as f:
+            pass
     
     # Save the uploaded resume DOCX.
     resume_path = os.path.join(company_dir, "original_resume.docx")
@@ -234,10 +240,19 @@ async def download_file(filename: str):
         raise HTTPException(status_code=404, detail="File not found")
         
     logging.info(f"Serving download file: {filename}")
+    
+    # Add security headers to prevent Chrome warnings
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": f"attachment; filename=\"{filename}\"",
+        "Content-Security-Policy": "default-src 'self'",
+    }
+    
     return FileResponse(
         path=file_path, 
         filename=filename,
-        media_type="application/octet-stream"
+        media_type="application/zip",
+        headers=headers
     )
 
 @router.websocket("/ws/progress/{job_id}")

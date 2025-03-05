@@ -1,0 +1,18 @@
+1. Install Chrome WebDriver using one of these methods:
+
+   **For macOS (using Homebrew)**:
+   ```bash
+   brew install --cask chromedriver
+   ```
+
+   **For Ubuntu/Debian**:
+   ```bash
+   sudo apt install chromium-chromedriver
+   ```
+
+   **Manual installation**:
+   - Download ChromeDriver from: https://chromedriver.chromium.org/downloads
+   - Make sure to download the version that matches your Chrome browser
+   - Extract the downloaded file
+   - Move chromedriver to a location in your PATH (e.g., /usr/local/bin/)
+   - Make it executable: `chmod +x /usr/local/bin/chromedriver` 

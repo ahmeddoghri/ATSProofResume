@@ -2,119 +2,115 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ATS Proof Resume</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
+    /* Custom styles */
+    .gradient-bg {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+    }
+    
+    .card:hover {
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+      transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    }
+    
     /* Progress bar styling */
-    #progress-container {
-      width: 100%;
-      background-color: #ddd;
-      display: none; /* Initially hidden */
-      margin-top: 20px;
+    .progress-container {
+      height: 12px;
+      border-radius: 6px;
+      overflow: hidden;
+      background-color: #E5E7EB;
     }
-    #progress-bar {
-      width: 0%;
-      height: 20px;
-      background-color: #4CAF50;
-      text-align: center;
+    
+    .progress-bar {
+      height: 100%;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #4F46E5 0%, #7C3AED 100%);
+      transition: width 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       color: white;
-      transition: width 0.25s ease-in-out; /* Smooth CSS transition */
-    }
-    
-    .form-group {
-      margin-bottom: 20px;
-    }
-    
-    .form-group label {
-      display: block;
-      margin-bottom: 5px;
+      font-size: 10px;
       font-weight: bold;
     }
     
-    .form-group input[type="text"],
-    .form-group input[type="file"],
-    .form-group select {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #ddd;
+    /* Custom range slider */
+    input[type="range"] {
+      -webkit-appearance: none;
+      height: 8px;
       border-radius: 4px;
+      background: #E5E7EB;
+      outline: none;
     }
     
-    .form-group input[type="range"] {
-      width: 100%;
-    }
-    
-    .temperature-value {
-      text-align: center;
-      margin-top: 5px;
-    }
-    
-    .api-key-info {
-      font-size: 0.9em;
-      color: #666;
-      margin-top: 5px;
-    }
-    
-    .form-group select option {
-      padding: 8px;
-    }
-    
-    .form-group select option:checked {
-      background-color: #e8f0fe;
-    }
-    
-    /* Style for the recommended option */
-    .form-group select option[selected] {
-      font-weight: bold;
-      background-color: #e8f0fe;
-    }
-    
-    .model-option {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 8px;
-    }
-    
-    .model-name {
-        font-weight: bold;
-    }
-    
-    .model-provider {
-        color: #666;
-        font-size: 0.9em;
-    }
-    
-    .model-category {
-        color: #0066cc;
-        font-size: 0.8em;
-        padding: 2px 6px;
-        border-radius: 4px;
-        background-color: #e8f0fe;
-    }
-    
-    optgroup {
-        font-weight: bold;
-        color: #333;
-    }
-    
-    .model-description {
-        color: #666;
-        font-size: 0.8em;
-        font-style: italic;
-        margin-top: 2px;
-    }
-    
-    .refresh-button {
-      margin-left: 10px;
-      padding: 4px 8px;
-      background-color: #f0f0f0;
-      border: 1px solid #ddd;
-      border-radius: 4px;
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #4F46E5;
       cursor: pointer;
     }
     
-    .refresh-button:hover {
-      background-color: #e0e0e0;
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #4F46E5;
+      cursor: pointer;
+      border: none;
+    }
+    
+    /* Hide any potential duplicate thumbs */
+    input[type="range"]::before,
+    input[type="range"]::after {
+      display: none !important;
+    }
+    
+    /* File input styling */
+    .file-input-container {
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .file-input-container input[type="file"] {
+      position: absolute;
+      font-size: 100px;
+      opacity: 0;
+      right: 0;
+      top: 0;
+      cursor: pointer;
+    }
+    
+    /* Select styling */
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 1rem;
     }
   </style>
   <script>
@@ -130,6 +126,33 @@
     // Update temperature display
     function updateTemperature(value) {
       document.getElementById('temperature-value').textContent = value;
+      
+      // Update the visual indicator
+      const percentage = (value - 0) / (1 - 0) * 100;
+      document.getElementById('temperature-indicator').style.left = `${percentage}%`;
+      
+      // Update the description based on temperature
+      const description = document.getElementById('temperature-description');
+      if (value <= 0.3) {
+        description.textContent = "Conservative - More predictable results";
+      } else if (value <= 0.7) {
+        description.textContent = "Balanced - Mix of creativity and consistency";
+      } else {
+        description.textContent = "Creative - More varied and unique results";
+      }
+    }
+    
+    function updateFileName() {
+      const fileInput = document.getElementById('file');
+      const fileLabel = document.getElementById('file-label');
+      
+      if (fileInput.files.length > 0) {
+        fileLabel.textContent = fileInput.files[0].name;
+        fileLabel.classList.add('text-indigo-600');
+      } else {
+        fileLabel.textContent = 'Choose a file';
+        fileLabel.classList.remove('text-indigo-600');
+      }
     }
     
     function handleFormSubmit(event) {
@@ -142,7 +165,7 @@
       // Hide the form and show the progress bar
       document.getElementById('form-container').style.display = 'none';
       var progressContainer = document.getElementById('progress-container');
-      progressContainer.style.display = 'block';
+      progressContainer.style.display = 'flex';
       var progressBar = document.getElementById('progress-bar');
       progressBar.style.width = '0%';
       progressBar.innerHTML = '0%';
@@ -194,12 +217,25 @@
               // Update latestTarget if the new value is higher.
               if (newTarget > latestTarget) {
                 latestTarget = newTarget;
+                
+                // Update the status message based on progress
+                const statusMessage = document.getElementById('status-message');
+                if (newTarget < 30) {
+                  statusMessage.textContent = "Analyzing your resume...";
+                } else if (newTarget < 60) {
+                  statusMessage.textContent = "Extracting job requirements...";
+                } else if (newTarget < 90) {
+                  statusMessage.textContent = "Optimizing your resume for ATS...";
+                } else {
+                  statusMessage.textContent = "Finalizing your resume package...";
+                }
               }
             };
           })
           .catch(error => {
             console.error("Error:", error);
-            alert("Error processing your resume. Please try again.");
+            document.getElementById('progress-container').style.display = 'none';
+            document.getElementById('error-container').style.display = 'flex';
           });
         }
       }, 25); // Update every 25ms for the initial auto-increment
@@ -209,9 +245,12 @@
     async function loadAvailableModels(forceRefresh = false) {
         const modelSelect = document.getElementById('model');
         const apiKey = getStoredApiKey();
+        const loadingIndicator = document.getElementById('model-loading');
         
         try {
             // Show loading state
+            loadingIndicator.classList.remove('hidden');
+            modelSelect.classList.add('opacity-50');
             modelSelect.innerHTML = '<option value="" disabled selected>Loading models...</option>';
             
             const url = forceRefresh 
@@ -266,6 +305,9 @@
                     <option value="gpt-3.5-turbo-0125">GPT-3.5 Turbo - Fast and cost-effective for simpler tasks</option>
                 </optgroup>
             `;
+        } finally {
+            loadingIndicator.classList.add('hidden');
+            modelSelect.classList.remove('opacity-50');
         }
     }
 
@@ -278,11 +320,17 @@
         // Load models immediately
         loadAvailableModels();
         
+        // Initialize temperature display
+        updateTemperature(document.getElementById('temperature').value);
+        
         // Save API key when it changes and reload models
         document.getElementById('api_key').addEventListener('input', debounce((e) => {
             saveApiKey(e.target.value);
             loadAvailableModels();
         }, 500));
+        
+        // Add file input listener
+        document.getElementById('file').addEventListener('change', updateFileName);
     });
 
     // Debounce function to prevent too many API calls
@@ -298,81 +346,183 @@
         };
     }
 
-    // Add this to your existing JavaScript
-    document.getElementById('refresh-models').addEventListener('click', () => {
-      const apiKey = document.getElementById('api_key').value;
-      loadAvailableModels(true); // Pass true to force refresh
-    });
+    // Add this function to your existing JavaScript
+    function updateTemperatureDisplay(value) {
+        // Update the displayed value
+        document.getElementById('temperature-value').textContent = value;
+        
+        // Update the recommendation text based on temperature
+        const description = document.getElementById('temperature-description');
+        if (value <= 0.2) {
+            description.textContent = "Very conservative - Highly predictable results with minimal variation";
+        } else if (value <= 0.4) {
+            description.textContent = "Conservative - More consistent and predictable outputs";
+        } else if (value <= 0.6) {
+            description.textContent = "Balanced - Good mix of creativity and consistency";
+        } else if (value <= 0.8) {
+            description.textContent = "Creative - More varied and unique results";
+        } else {
+            description.textContent = "Highly creative - Maximum variation and originality in outputs";
+        }
+    }
   </script>
 </head>
-<body>
-  <h2>Upload Your Resume & Job Posting Link</h2>
-  
-  <div id="form-container">
-    <form onsubmit="handleFormSubmit(event)" enctype="multipart/form-data">
-      <!-- AI Model Selection -->
-      <div class="form-group">
-        <label for="model">AI Model:</label>
-        <select name="model" id="model">
-          <option value="">Loading models...</option>
-        </select>
-        <button type="button" id="refresh-models" class="refresh-button">↻ Refresh Models</button>
-      </div>
-
-      <!-- Temperature Control -->
-      <div class="form-group">
-        <label for="temperature">AI Creativity Level:</label>
-        <input 
-          type="range" 
-          name="temperature" 
-          id="temperature" 
-          min="0" 
-          max="1" 
-          step="0.1" 
-          value="0.1" 
-          oninput="updateTemperature(this.value)"
-        >
-        <div id="temperature-value" class="temperature-value">0.1</div>
-      </div>
-
-      <!-- API Key -->
-      <div class="form-group">
-        <label for="api_key">OpenAI API Key:</label>
-        <input 
-          type="text" 
-          name="api_key" 
-          id="api_key" 
-          value="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"
-        >
-        <div class="api-key-info">
-          Default key provided. You can use your own OpenAI API key if you have one.
+<body class="gradient-bg min-h-screen font-sans text-gray-800 py-8 px-4">
+  <div class="max-w-3xl mx-auto">
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-bold text-indigo-800 mb-2">ATS Proof Resume</h1>
+      <p class="text-gray-600">Optimize your resume for Applicant Tracking Systems and land more interviews</p>
+    </div>
+    
+    <div id="form-container" class="card p-8">
+      <form onsubmit="handleFormSubmit(event)" enctype="multipart/form-data" class="space-y-6">
+        <!-- AI Model Selection -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label for="model" class="block text-sm font-medium text-gray-700">AI Model</label>
+            <div class="flex items-center">
+              <div id="model-loading" class="mr-2 hidden">
+                <svg class="animate-spin h-4 w-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </div>
+              <button 
+                type="button" 
+                id="refresh-models" 
+                class="text-xs text-indigo-600 hover:text-indigo-800 flex items-center"
+                onclick="loadAvailableModels(true)"
+              >
+                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Refresh
+              </button>
+            </div>
+          </div>
+          <select 
+            name="model" 
+            id="model" 
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          >
+            <option value="">Loading models...</option>
+          </select>
         </div>
-      </div>
 
-      <!-- Existing File Upload -->
-      <div class="form-group">
-        <label for="file">Resume (.docx):</label>
-        <input 
-          type="file" 
-          name="file" 
-          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
-          required
+        <!-- Temperature Control with value display and recommendations -->
+        <div class="mb-6">
+            <label for="temperature" class="block text-sm font-medium text-gray-700 mb-1">AI Creativity Level</label>
+            <div class="relative">
+                <input type="range" id="temperature" name="temperature" min="0" max="1" step="0.1" value="0.1"
+                       class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                       oninput="updateTemperatureDisplay(this.value)">
+                <div class="flex justify-between text-xs text-gray-600 px-1 mt-1">
+                    <span>Conservative</span>
+                    <span id="temperature-value" class="text-indigo-600 font-medium">0.1</span>
+                    <span>Creative</span>
+                </div>
+            </div>
+            <p id="temperature-description" class="text-xs text-gray-500 mt-2 text-center">
+                Balanced approach with moderate creativity and consistency
+            </p>
+        </div>
+
+        <!-- API Key -->
+        <div class="space-y-2">
+          <label for="api_key" class="block text-sm font-medium text-gray-700">OpenAI API Key</label>
+          <input 
+            type="text" 
+            name="api_key" 
+            id="api_key" 
+            value="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"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          >
+          <p class="text-xs text-gray-500 mt-1">Default key provided. You can use your own OpenAI API key if you have one.</p>
+        </div>
+
+        <!-- File Upload -->
+        <div class="space-y-2">
+          <label for="file" class="block text-sm font-medium text-gray-700">Resume (.docx)</label>
+          <div class="file-input-container">
+            <div class="flex items-center justify-center w-full">
+              <label for="file" class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition duration-150">
+                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                  <svg class="w-8 h-8 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                  </svg>
+                  <p id="file-label" class="mb-2 text-sm text-gray-500">Choose a file</p>
+                  <p class="text-xs text-gray-500">DOCX files only</p>
+                </div>
+              </label>
+              <input 
+                type="file" 
+                name="file" 
+                id="file" 
+                accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+                required
+                class="hidden"
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- Job Link -->
+        <div class="space-y-2">
+          <label for="job_link" class="block text-sm font-medium text-gray-700">Job Posting URL</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <input 
+              type="text" 
+              name="job_link" 
+              id="job_link" 
+              required
+              placeholder="https://example.com/job-posting"
+              class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+          </div>
+        </div>
+        
+        <button 
+          type="submit" 
+          class="w-full btn-primary text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
+          Optimize My Resume
+        </button>
+      </form>
+    </div>
+    
+    <!-- Progress Container -->
+    <div id="progress-container" class="card p-8 hidden flex-col items-center justify-center space-y-6">
+      <h2 class="text-xl font-semibold text-indigo-800">Processing Your Resume</h2>
+      <div class="w-full progress-container">
+        <div id="progress-bar" class="progress-bar" style="width: 0%">0%</div>
       </div>
-
-      <!-- Job Link -->
-      <div class="form-group">
-        <label for="job_link">Job Posting URL:</label>
-        <input type="text" name="job_link" required>
+      <p id="status-message" class="text-gray-600 text-center">Analyzing your resume...</p>
+      <div class="animate-pulse flex space-x-4 mt-4">
+        <div class="rounded-full bg-indigo-200 h-3 w-3"></div>
+        <div class="rounded-full bg-indigo-300 h-3 w-3"></div>
+        <div class="rounded-full bg-indigo-400 h-3 w-3"></div>
       </div>
-      
-      <button type="submit">Submit</button>
-    </form>
-  </div>
-  
-  <!-- Progress Bar Container -->
-  <div id="progress-container">
-    <div id="progress-bar">0%</div>
+    </div>
+    
+    <!-- Error Container -->
+    <div id="error-container" class="card p-8 hidden flex-col items-center justify-center space-y-4">
+      <svg class="w-16 h-16 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+      <h2 class="text-xl font-semibold text-gray-800">Something went wrong</h2>
+      <p class="text-gray-600 text-center">We couldn't process your resume. Please try again.</p>
+      <button 
+        onclick="window.location.reload()" 
+        class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+      >
+        Try Again
+      </button>
+    </div>
   </div>
 </body>
 </html>
