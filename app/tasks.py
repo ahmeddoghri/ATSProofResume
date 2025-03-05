@@ -1,14 +1,11 @@
 import os
 import zipfile
+import logging
 from app.utils import extract_text_from_docx, sanitize_filename, format_markdown_for_text
+from app.state import progress_status, OUTPUT_DIR
 from resume.processor import ResumeProcessor
 from recommendations import generate_recommendations
 from interview_questions import generate_interview_questions
-
-# You may want to import your progress_status and OUTPUT_DIR from a shared module if they are used across files.
-progress_status = {}  # Alternatively, consider using a proper state management solution.
-OUTPUT_DIR = "output"
-
 
 def process_resume_job(
     job_id: str, 
@@ -24,6 +21,7 @@ def process_resume_job(
     """
     try:
         progress_status[job_id] = 10
+        logging.info(f"Starting job {job_id} - Progress: 10%")
         
         # Pass AI parameters to the processing functions
         formatted_resume_path = os.path.join(company_dir, "formatted_resume.docx")
@@ -38,6 +36,7 @@ def process_resume_job(
         )
             
         progress_status[job_id] = 60
+        logging.info(f"Resume processed for job {job_id} - Progress: 60%")
         
         # Extract resume text for further processing
         resume_text = extract_text_from_docx(resume_path)
@@ -56,6 +55,7 @@ def process_resume_job(
         with open(recommendations_path, "w", encoding="utf-8") as f:
             f.write(recommendations_text)
         progress_status[job_id] = 75
+        logging.info(f"Recommendations generated for job {job_id} - Progress: 75%")
         
         # Generate interview questions
         company_name = job_data.get("company", "Unknown Company")
@@ -91,19 +91,21 @@ def process_resume_job(
                 f.write(questions_text)
                 
         except Exception as e:
-            print(f"Error generating interview questions: {e}")
+            logging.error(f"Error generating interview questions: {e}")
             # Create a basic questions file if generation fails
             questions_path = os.path.join(company_dir, "interview_questions.txt")
             with open(questions_path, "w", encoding="utf-8") as f:
                 f.write("Interview questions could not be generated. Please try again later.")
         
         progress_status[job_id] = 85
+        logging.info(f"Interview questions generated for job {job_id} - Progress: 85%")
         
         # Step 3: Bundle all outputs into a ZIP file
         job_title = sanitize_filename(job_data.get("job_title", "Job_Description"))[:50]
         company_name = sanitize_filename(job_data.get("company", "Unknown_Company"))
         zip_filename = f"{company_name}_{job_title}.zip"
         zip_filepath = os.path.join(OUTPUT_DIR, zip_filename)
+        logging.info(f"Creating ZIP file at: {zip_filepath}")
         
         with zipfile.ZipFile(zip_filepath, "w") as zipf:
             # Add all files to the ZIP
@@ -118,11 +120,17 @@ def process_resume_job(
             
             for arc_name, file_path in files_to_zip.items():
                 if os.path.exists(file_path):
+                    logging.info(f"Adding to ZIP: {arc_name} from {file_path}")
                     zipf.write(file_path, arc_name)
-                
+                else:
+                    logging.warning(f"File not found for ZIP: {file_path}")
+
+        logging.info(f"ZIP file created: {zip_filepath} (exists: {os.path.exists(zip_filepath)})")
+        
         progress_status[job_id] = 100
+        logging.info(f"Job {job_id} completed - Progress: 100%")
         
     except Exception as e:
-        print(f"Error processing job {job_id}: {e}")
+        logging.error(f"Error processing job {job_id}: {e}")
         progress_status[job_id] = -1  # Indicate error
 
