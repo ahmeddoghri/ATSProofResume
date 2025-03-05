@@ -20,6 +20,7 @@ class ResumeProcessor:
     """Handles AI-powered rewriting of resumes"""
     
     def __init__(self, api_key=None, writer=None):
+        """Initialize the ResumeProcessor with an API key and writer."""
         self.api_key = api_key
         self.writer = writer or ResumeWriter()
     

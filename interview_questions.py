@@ -1,3 +1,6 @@
+"""
+Generates interview questions based on job description and resume.
+"""
 import logging
 from openai import OpenAI
 from typing import List, Dict, Any, Optional

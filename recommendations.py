@@ -1,3 +1,6 @@
+"""
+Generates recommendations for improving the resume based on the job description.
+"""
 import logging
 from openai import OpenAI
 from typing import Optional

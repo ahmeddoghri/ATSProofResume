@@ -11,6 +11,12 @@ class ResumeParser:
     def parse_date(date_str):
         """
         Parse a date string in MM/YYYY format and return a tuple (year, month) for sorting.
+        
+        Args:
+            date_str: A date string in MM/YYYY format
+            
+        Returns:
+            tuple: (year, month) for sorting purposes
         """
         try:
             if '/' in date_str:
