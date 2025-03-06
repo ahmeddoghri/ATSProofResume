@@ -2,7 +2,7 @@
 Unit tests for the app tasks module.
 """
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 import os
 import tempfile
 import json
@@ -81,7 +81,7 @@ class TestAppTasks(unittest.TestCase):
         # Mock extract_text_from_docx
         with patch('app.tasks.extract_text_from_docx', return_value="Sample resume text"):
             # Mock open function for file writes
-            with patch('builtins.open', mock_open()):
+            with patch('builtins.open', mock_open()) as mock_file:
                 # Mock zipfile
                 with patch('zipfile.ZipFile'):
                     # Run the task
