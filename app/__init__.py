@@ -1,5 +1,5 @@
 """
-init file for the app
+ATS-Proof Resume application package.
 """
 from fastapi import FastAPI
 from .routes import router as api_router
