@@ -77,7 +77,7 @@ class TestInterviewQuestions(unittest.TestCase):
             ]
         })
     
-    @patch('openai.OpenAI')
+    @patch('interview_questions.OpenAI')
     def test_generate_interview_questions_success(self, mock_openai_class):
         """Test successful generation of interview questions."""
         # Mock OpenAI client
@@ -113,7 +113,7 @@ class TestInterviewQuestions(unittest.TestCase):
         call_args = mock_client.chat.completions.create.call_args[1]
         self.assertEqual(call_args["model"], "gpt-4o")
     
-    @patch('openai.OpenAI')
+    @patch('interview_questions.OpenAI')
     def test_generate_interview_questions_api_error(self, mock_openai_class):
         """Test handling of API errors."""
         # Mock OpenAI client to raise an exception

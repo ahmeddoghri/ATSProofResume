@@ -5,7 +5,6 @@ import unittest
 from unittest.mock import patch, MagicMock, mock_open
 import os
 import tempfile
-import json
 from resume.processor import ResumeProcessor
 
 
@@ -23,9 +22,9 @@ class TestResumeProcessor(unittest.TestCase):
         <CONTACT>john.doe@example.com | 555-123-4567 | linkedin.com/in/johndoe</CONTACT>
         <SUMMARY>Experienced software engineer with 5+ years in web development.</SUMMARY>
         <SKILLS>
-        Python | JavaScript | React | Node.js
-        AWS | Docker | Kubernetes | CI/CD
-        Agile | Scrum | Team Leadership
+        Python | JavaScript
+        React | Node.js
+        AWS | Docker
         </SKILLS>
         <EXPERIENCE>
         <COMPANY>Tech Solutions Inc.</COMPANY>
@@ -54,92 +53,53 @@ class TestResumeProcessor(unittest.TestCase):
         """
     
     @patch('openai.OpenAI')
-    def test_generate_optimized_resume(self, mock_openai_class):
-        """Test generating an optimized resume."""
+    def test_get_model_response(self, mock_openai_class):
+        """Test getting response from the model."""
         # Mock OpenAI client
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
         
         # Mock chat completion response
         mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = self.sample_resume_text
         mock_client.chat.completions.create.return_value = mock_response
         
-        result = self.processor._generate_optimized_resume(
-            "Original resume text",
-            self.sample_job_description,
-            "gpt-4o",
-            0.1
-        )
+        # Test with standard GPT model
+        self.processor._get_model_response(mock_client, "gpt-4", "test prompt", 0.1)
         
-        # Verify the result
-        self.assertEqual(result, self.sample_resume_text)
-        
-        # Verify OpenAI was called correctly
+        # Verify OpenAI was called correctly for standard model
         mock_client.chat.completions.create.assert_called_once()
         call_args = mock_client.chat.completions.create.call_args[1]
-        self.assertEqual(call_args["model"], "gpt-4o")
+        self.assertEqual(call_args["model"], "gpt-4")
+        self.assertEqual(len(call_args["messages"]), 2)  # System + user message
+        
+        # Reset mock
+        mock_client.chat.completions.create.reset_mock()
+        
+        # Test with o1/o3/claude model
+        self.processor._get_model_response(mock_client, "o1-preview", "test prompt", 0.1)
+        
+        # Verify OpenAI was called correctly for o1 model
+        mock_client.chat.completions.create.assert_called_once()
+        call_args = mock_client.chat.completions.create.call_args[1]
+        self.assertEqual(call_args["model"], "o1-preview")
+        self.assertEqual(len(call_args["messages"]), 1)  # Only user message
     
-    @patch('resume.processor.ResumeProcessor._extract_text_from_docx')
-    def test_extract_text_from_docx(self, mock_extract):
-        """Test extracting text from a DOCX file."""
-        mock_extract.return_value = "Extracted resume text"
+    def test_create_resume_prompt(self):
+        """Test creating the resume prompt."""
+        prompt = self.processor._create_resume_prompt(
+            self.sample_job_description,
+            "Original resume text"
+        )
         
-        # Create a temporary file
-        with tempfile.NamedTemporaryFile(suffix='.docx') as temp_file:
-            result = self.processor._extract_text_from_docx(temp_file.name)
-            
-            # Verify the result
-            self.assertEqual(result, "Extracted resume text")
-            
-            # Verify the method was called correctly
-            mock_extract.assert_called_once_with(temp_file.name)
+        # Verify the prompt contains key elements
+        self.assertIn("JOB DESCRIPTION:", prompt)
+        self.assertIn("RESUME:", prompt)
+        self.assertIn("Original resume text", prompt)
+        self.assertIn("<NAME>", prompt)
+        self.assertIn("<SKILLS>", prompt)
+        self.assertIn("<EXPERIENCE>", prompt)
     
-    @patch('docx.Document')
-    @patch('resume.processor.ResumeProcessor._extract_text_from_docx')
-    @patch('resume.processor.ResumeProcessor._generate_optimized_resume')
-    def test_process_resume(self, mock_generate, mock_extract, mock_document):
-        """Test the full resume processing flow."""
-        # Mock document extraction
-        mock_extract.return_value = "Original resume text"
-        
-        # Mock resume generation
-        mock_generate.return_value = self.sample_resume_text
-        
-        # Mock document creation
-        mock_doc = MagicMock()
-        mock_document.return_value = mock_doc
-        
-        # Mock writer
-        mock_writer = MagicMock()
-        self.processor.writer = mock_writer
-        
-        # Create temporary files for testing
-        with tempfile.NamedTemporaryFile(suffix='.docx') as input_file, \
-             tempfile.NamedTemporaryFile(suffix='.docx') as output_file:
-            
-            result = self.processor.process_resume(
-                input_file.name,
-                self.sample_job_description,
-                output_file.name,
-                "gpt-4o",
-                0.1
-            )
-            
-            # Verify the result
-            self.assertTrue(result)
-            
-            # Verify the methods were called correctly
-            mock_extract.assert_called_once_with(input_file.name)
-            mock_generate.assert_called_once_with(
-                "Original resume text",
-                self.sample_job_description,
-                "gpt-4o",
-                0.1
-            )
-            mock_writer.write_resume.assert_called_once()
-    
+
     def test_validate_resume_format_valid(self):
         """Test validation of a correctly formatted resume."""
         result = self.processor._validate_resume_format(self.sample_resume_text)
@@ -183,24 +143,39 @@ class TestResumeProcessor(unittest.TestCase):
         self.assertFalse(result)
     
     @patch('openai.OpenAI')
-    def test_generate_optimized_resume_error(self, mock_openai_class):
-        """Test error handling in resume generation."""
+    @patch('logging.error')
+    def test_process_resume_api_error(self, mock_logging_error, mock_openai_class):
+        """Test error handling in resume processing."""
         # Mock OpenAI client to raise an exception
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
         mock_client.chat.completions.create.side_effect = Exception("API error")
         
-        # Test with error handling
-        with self.assertRaises(Exception):
-            self.processor._generate_optimized_resume(
-                "Original resume text",
+        # Mock document
+        mock_doc = MagicMock()
+        
+        with patch('docx.Document', return_value=mock_doc), \
+             patch('os.path.exists', return_value=True), \
+             patch('shutil.copy') as mock_copy, \
+             tempfile.NamedTemporaryFile(suffix='.docx') as input_file, \
+             tempfile.NamedTemporaryFile(suffix='.docx') as output_file:
+            
+            result = self.processor.process_resume(
+                input_file.name,
                 self.sample_job_description,
+                output_file.name,
                 "gpt-4o",
                 0.1
             )
-        
-        # Verify OpenAI was called
-        mock_client.chat.completions.create.assert_called_once()
+            
+            # Verify the result is False due to error
+            self.assertFalse(result)
+            
+            # Verify error was logged
+            mock_logging_error.assert_called()
+            
+            # Verify original file was copied to output
+            mock_copy.assert_called_once()
 
 
 if __name__ == '__main__':
