@@ -1,7 +1,3 @@
-
-
-
-
 # ATS-Proof Resume Generator
 
 **Transform your job application game. Forever.**
@@ -123,7 +119,7 @@ The choice of LLM model significantly impacts your results. After extensive test
 The system relies on a specific XML-like format for processing resumes. The LLM is instructed to output in this format, but occasionally issues may occur.
 
 Example of Correct Format:
-````xml
+```xml
 <resume>
   <header>
     <name>John Smith</name>
@@ -152,7 +148,7 @@ Example of Correct Format:
   </experience>
   <!-- Additional sections -->
 </resume>
-````
+```
 
 ### Troubleshooting Format Issues:
 
@@ -173,30 +169,30 @@ If you encounter format problems:
 The `run.sh` script provides several execution modes:
 
 ### Standard Mode
-````
+```
 ./run.sh
-````
+```
 
 Creates a Python virtual environment, installs dependencies, and runs the application locally.
 
 ### Testing Mode
-````
+```
 ./run.sh --test
-````
+```
 
 Verifies all dependencies are correctly installed without starting the application.
 
 ### Docker Mode
-````
+```
 ./run.sh --docker
-````
+```
 
 Builds and runs the application in a Docker container, providing complete isolation from your system.
 
 ### Help Mode
-````
+```
 ./run.sh --help
-````
+```
 
 Displays available options and usage information.
 
@@ -225,6 +221,79 @@ If you see "Resume rewriting failed" errors:
 3. Try a different model or reduce the temperature setting
 4. Check the application logs for detailed error messages
 
+## Troubleshooting Chrome/Selenium Issues in Docker
+
+### DevToolsActivePort File Error
+
+If you see an error like this in your logs:
+```
+Failed to capture screenshot: Message: unknown error: Chrome failed to start: exited abnormally.
+(unknown error: DevToolsActivePort file doesn't exist)
+(The process started from chrome location /usr/bin/chromium is no longer running, so ChromeDriver is assuming that Chrome has crashed.)
+```
+
+This is a common issue when running Chrome in Docker containers. Here's how to fix it:
+
+#### Solution 1: Update Chrome Options
+
+Modify the `job_scraper.py` file to add these additional Chrome options:
+
+```python
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
+chrome_options.add_argument("--disable-gpu")
+chrome_options.add_argument("--disable-extensions")
+chrome_options.add_argument("--disable-dev-tools")
+chrome_options.add_argument("--remote-debugging-port=9222")
+```
+
+#### Solution 2: Use the Selenium Container
+
+The application is configured to use a separate Selenium container when running with Docker Compose. Make sure:
+
+1. Both containers are running:
+   ```bash
+   docker-compose ps
+   ```
+
+2. The environment variable is set correctly in docker-compose.yml:
+   ```yaml
+   environment:
+     - SELENIUM_REMOTE_URL=http://selenium:4444/wd/hub
+   ```
+
+3. The Selenium container has enough shared memory:
+   ```yaml
+   shm_size: 2g
+   ```
+
+#### Solution 3: Rebuild with Updated Docker Configuration
+
+If you've made changes to fix the issue:
+
+```bash
+docker-compose down
+docker-compose up --build
+```
+
+#### Solution 4: Check for ARM64 Compatibility
+
+If you're running on an ARM-based system (like M1/M2 Mac):
+
+1. Make sure you're using the ARM-compatible Selenium image:
+   ```yaml
+   selenium:
+     image: seleniarm/standalone-chromium:latest
+   ```
+
+2. Set the platform for your app container:
+   ```yaml
+   app:
+     platform: linux/amd64
+   ```
+
+The application is designed to fall back to creating a placeholder image when screenshot capture fails, so your resume processing should still work even if screenshots cannot be captured.
+
 ## The Philosophy Behind This Tool
 
 Most resume tools focus on cosmetic improvements. This one doesn't.
@@ -247,7 +316,7 @@ Use this tool not as a magic bullet, but as a strategic advantage in a game wher
 
 ## For Developers: Project Structure
 
-````
+```
 ats-proof-resume/
 ├── app/                  # Main application code
 │   ├── __init__.py
@@ -269,7 +338,7 @@ ats-proof-resume/
 ├── run.sh                # Main execution script
 ├── test_deps.py          # Dependency testing script
 └── test_imports.py       # Import verification script
-````
+```
 
 ## Contributing
 

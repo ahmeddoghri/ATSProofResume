@@ -33,8 +33,8 @@ RUN python test_deps.py && python test_imports.py
 
 # Copy application code
 COPY . .
-RUN python docker_pillow_fix.py
-RUN python docker_selenium_fix.py
+RUN python docker_files/docker_pillow_fix.py
+RUN python docker_files/docker_selenium_fix.py
 
 # Create output directory
 RUN mkdir -p output

@@ -22,3 +22,6 @@ webdriver-manager>=4.0.1
 # Utilities
 python-dotenv>=1.0.0
 pydantic>=2.4.2
+
+# Image Processing
+Pillow>=9.0.0
