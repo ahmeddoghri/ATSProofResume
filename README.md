@@ -20,6 +20,17 @@ An AI-powered tool that doesn't just optimize your resume—it weaponizes it aga
 - OpenAI API key (for the AI-powered features)
 - Chrome/Chromium (for capturing job posting screenshots)
 
+### Generating an OpenAI API Key
+
+To use the AI-powered features of this tool, you need an OpenAI API key. Follow these steps to generate your API key:
+
+1. Visit the [OpenAI Quickstart Guide](https://platform.openai.com/docs/quickstart).
+2. Sign in or create an OpenAI account.
+3. Navigate to the API section in your account dashboard.
+4. Generate a new API key and keep it secure.
+
+Once you have your API key, you can set it as an environment variable or enter it directly in the application interface.
+
 ## Installation Options
 
 ### Option 1: One-Command Setup (Recommended)
@@ -108,55 +119,149 @@ If you're running on an ARM-based machine like an M1/M2 Mac:
 
 The choice of LLM model significantly impacts your results. After extensive testing:
 
-- **o1-mini**: Offers the best balance of performance and cost. Handles complex resume restructuring with excellent accuracy.
-- **gpt-4o**: Provides slightly more creative rewrites but at higher cost.
-- **gpt-3.5-turbo**: Acceptable for basic resumes but may struggle with complex career histories.
+- **o1-mini-2024-09-12**: Offers the best balance of performance and cost. Handles complex resume restructuring with excellent accuracy while being more cost-effective than GPT-4o.
+- **gpt-4o**: Provides more creative rewrites with excellent comprehension of complex career histories, but at a higher cost (approximately 5-10x more expensive than o1-mini).
+- **gpt-3.5-turbo**: Most economical option, acceptable for basic resumes but may struggle with complex career histories or nuanced job requirements.
 
-**Important**: The application currently processes your entire resume in a single LLM call. This approach works well with modern models but may hit token limits with extremely lengthy resumes.
+For most users, **o1-mini** is the recommended choice as it delivers high-quality results at a reasonable cost.
 
-## XML Format Requirements
+**Temperature Setting**: The application allows you to adjust the AI's creativity level:
+- Lower values (0.1-0.3): More conservative, consistent outputs
+- Medium values (0.4-0.6): Balanced approach with moderate creativity
+- Higher values (0.7+): More creative variations but potentially less consistent
 
-The system relies on a specific XML-like format for processing resumes. The LLM is instructed to output in this format, but occasionally issues may occur.
+**Important**: The application processes your entire resume in a single LLM call. This approach works well with modern models but may hit token limits with extremely lengthy resumes (10+ pages).
 
-Example of Correct Format:
+## User Interface
+
+### Landing Page
+
+![ATS Proof Resume Generator Landing Page](docs/images/landing-page.png)
+
+The landing page features a clean, intuitive interface with the following components:
+
+1. **AI Model Selection**: A dropdown menu allowing you to choose from various OpenAI models, with recommendations highlighted.
+2. **Creativity Level Slider**: Adjust the temperature parameter to control how creative or conservative the AI's output will be.
+3. **API Key Field**: Enter your OpenAI API key (a default key is provided for convenience).
+4. **Resume Upload**: A drag-and-drop area to upload your DOCX resume file.
+5. **Job Posting URL**: Enter the URL of the job posting you're targeting.
+
+The interface is designed to be straightforward while giving you control over the key parameters that affect your resume optimization. The page also includes helpful tooltips and descriptions to guide your choices.
+
+### Results Page
+
+![ATS Proof Resume Generator Results Page](docs/images/result-page.png)
+
+After processing your resume, you'll be presented with a results page that includes:
+
+1. **Success Confirmation**: A visual indicator that your resume has been successfully processed.
+2. **Feature Cards**: Three cards highlighting the key optimizations made to your resume:
+   - ATS Optimization: Formatting changes to make your resume readable by applicant tracking systems
+   - Job Targeting: Tailoring to match the specific job requirements
+   - Interview Preparation: Materials to help you prepare for interviews
+
+3. **Download Button**: A prominent button to download your complete resume package.
+4. **Start Over Option**: A button to return to the landing page and process another resume.
+5. **Download Instructions**: Helpful tips about handling any browser security warnings when downloading the ZIP file.
+
+The results page is designed to clearly communicate the value of the optimizations made to your resume while making it easy to access your new resume package.
+
+## Resume Format Requirements
+
+The system uses a specific tag-based format for processing resumes. The AI model is instructed to output in this format to ensure proper parsing and document generation.
+
+### Example of Correct Format:
 ```xml
-<resume>
-  <header>
-    <name>John Smith</name>
-    <contact>
-      <email>john.smith@example.com</email>
-      <phone>(555) 123-4567</phone>
-      <location>San Francisco, CA</location>
-      <linkedin>linkedin.com/in/johnsmith</linkedin>
-    </contact>
-  </header>
-  <summary>
-    Experienced software engineer with 5+ years specializing in cloud infrastructure and distributed systems...
-  </summary>
-  <experience>
-    <job>
-      <title>Senior Software Engineer</title>
-      <company>Tech Innovations Inc.</company>
-      <date>January 2020 - Present</date>
-      <achievements>
-        <item>Redesigned microservice architecture reducing latency by 40%</item>
-        <item>Led team of 5 engineers in developing new payment processing system</item>
-        <!-- Additional achievements -->
-      </achievements>
-    </job>
-    <!-- Additional jobs -->
-  </experience>
-  <!-- Additional sections -->
-</resume>
+<NAME>
+John Smith
+
+<CONTACT>
+john.smith@example.com | linkedin.com/in/johnsmith | (555) 123-4567 | San Francisco, CA
+
+<SUMMARY>
+Experienced software engineer with 5+ years specializing in cloud infrastructure and distributed systems...
+
+<SKILLS>
+Cloud Architecture | CI/CD Pipelines | Kubernetes | Docker | Python | JavaScript
+
+<EXPERIENCE>
+<COMPANY>
+Tech Innovations Inc. | San Francisco, CA
+
+<POSITION_DATE>
+Senior Software Engineer | 01/2020 – Present
+
+<BULLET>
+Infrastructure: Redesigned microservice architecture reducing latency by 40%
+
+<BULLET>
+Leadership: Led team of 5 engineers in developing new payment processing system
+
+<COMPANY>
+Previous Company | Location
+
+<POSITION_DATE>
+Software Developer | 03/2017 – 12/2019
+
+<BULLET>
+Development: Created responsive web application increasing user engagement by 25%
+
+<EDUCATION>
+University of Technology | San Francisco, CA
+Bachelor of Science in Computer Science – Cum Laude
+GPA 3.8/4.0 | 08/2013 – 05/2017
+
+<VOLUNTEERISM>
+Code for Good | 06/2018 – Present
+Volunteer developer for nonprofit organizations
+
+<OTHER RELEVANT INFORMATION>
+Languages: English (Native), Spanish (Conversational)
 ```
+
+### Final Resume Formatting
+
+The system transforms the tagged format into a professionally formatted DOCX file with:
+
+1. **Clean, ATS-Friendly Layout**: Optimized for both human readers and applicant tracking systems
+2. **Consistent Typography**: Professional font choices with proper hierarchy
+3. **Strategic Whitespace**: Balanced spacing for improved readability
+4. **Bullet Point Optimization**: Achievement-focused bullet points with action verbs
+5. **Keyword Integration**: Strategic placement of job-relevant keywords
+6. **Section Organization**: Logical flow of information prioritizing relevant experience
+
+The final document follows best practices for modern resume design while maintaining compatibility with ATS systems that many employers use to screen candidates.
+
+### Example Transformation
+
+For a real-world example of how the system transforms resumes, see this [sample SysAdmin/Cloud resume from Reddit](https://www.reddit.com/r/resumes/comments/cs93cu/resume_for_sysadmin_cloud_etc_positions/). The system would analyze this resume, identify improvement opportunities, and restructure it to highlight relevant skills and achievements for the target position.
 
 ### Troubleshooting Format Issues:
 
 If you encounter format problems:
-- Try a different model (o1-mini tends to follow formatting instructions most consistently)
-- Reduce the temperature setting to 0.1-0.3 for more deterministic outputs
-- Ensure your original resume is properly formatted in the DOCX file
-- Check the application logs for specific error messages
+- **Try a different model**: The `o1-mini` model tends to follow formatting instructions most consistently
+- **Lower the temperature**: Reduce the temperature setting to 0.1-0.3 for more deterministic outputs
+- **Check your original resume**: Ensure your original resume is properly formatted in the DOCX file
+- **Review application logs**: Check the logs for specific error messages about format validation
+- **Simplify complex resumes**: Very complex resume structures might need simplification
+
+The system includes built-in retry logic - if processing fails after multiple attempts, you'll receive an error notification and can try again with different settings.
+
+### Course Connection
+
+This tool was inspired by the [Modern Job Application Mastery course](https://courses.eazl.co/courses/438780/lectures/6728683), which teaches a powerful methodology for resume optimization:
+
+1. **Extract Key Skills**: Analyze job descriptions to identify 6-8 critical skills or competencies that employers are seeking
+2. **Map Skills to Experience**: Systematically rewrite each work experience bullet point to demonstrate these specific skills
+3. **Use Employer Language**: Mirror the exact terminology and phrasing from the job description
+4. **Quantify Achievements**: Add metrics and specific results to validate your proficiency in each skill area
+5. **Prioritize Relevance**: Reorganize content to highlight the most relevant skills for the specific position
+
+This methodology is the foundation of our AI-powered resume optimization. The system automatically extracts the key skills from job descriptions and restructures your resume to demonstrate these skills through your past experiences, creating a targeted document that speaks directly to what employers are looking for.
+
+For example, if a job description emphasizes "cloud infrastructure management," "team leadership," and "cost optimization," the system will identify these skills and rewrite your experience bullets to highlight specific instances where you've demonstrated these competencies, using language that resonates with ATS systems and hiring managers alike.
+
+For maximum results, use this tool alongside the course materials to develop a comprehensive job application strategy that goes beyond just resume optimization.
 
 ## Environment Variables
 
@@ -302,10 +407,6 @@ This tool operates on the principle that modern job applications are a two-audie
 
 The difference is subtle but critical.
 
-## Course Connection
-
-This tool was developed as part of the "Modern Job Application Mastery" course. For a complete walkthrough of how to maximize your results with this tool and the broader strategies for modern job hunting, visit coursename.com.
-
 ## Final Thoughts
 
 Your resume isn't just a document—it's the most important piece of marketing you'll ever create for yourself.
@@ -323,17 +424,39 @@ ats-proof-resume/
 │   ├── main.py           # FastAPI application entry point
 │   ├── routes.py         # API endpoints
 │   ├── state.py          # Application state management
-│   └── tasks.py          # Background processing tasks
+│   ├── tasks.py          # Background processing tasks
+│   ├── services.py       # Service functions for model management
+│   ├── caching.py        # Cashing Custom Decorators
+│   └── utils.py          # Utility functions
 ├── resume/               # Resume processing logic
 │   ├── __init__.py
+│   ├── formatter.py
+│   ├── parser.py
+│   ├── writer.py
 │   └── processor.py      # AI-powered resume optimization
+├── templates/            # HTML templates for the web interface
+│   ├── result.html
+│   └── index.html        # Landing page template
+├── docs/                 # Documentation assets
+│   └── images/           # Screenshots and diagrams
+├── tests/ # Test suite
+│   ├── init.py
+│   ├── mocks.py # Mock objects for testing
+│   ├── test_app_main.py # Tests for main application
+│   ├── test_app_routes.py # Tests for app routes
+│   └── test_app_tasks.py # Tests for app tasks
+├── docker_files/         # Docker-specific utilities
+│   ├── docker_pillow_fix.py    # Fix for Pillow in Docker
+│   ├── docker_fix.py           # Fix to work in Docker on ARM64 architecture.
+│   ├── docker_selenium_fix.py  # Fix for Selenium in Docker
+│   └── job_scraper_docker.py   # Docker-compatible version of the job_scraper.py
 ├── job_scraper.py        # Job posting scraping functionality
 ├── interview_questions.py # Interview question generation
 ├── recommendations.py    # Personalized recommendation generation
 ├── Dockerfile            # Main Docker configuration
 ├── Dockerfile.selenium   # Selenium-specific Docker configuration
 ├── docker-compose.yml    # Multi-container Docker setup
-├── docker_fix.py         # Docker compatibility script for ARM64
+├── setup.py              # Package installation configuration
 ├── requirements.txt      # Python dependencies
 ├── run.sh                # Main execution script
 ├── test_deps.py          # Dependency testing script
