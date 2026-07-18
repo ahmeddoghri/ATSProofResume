@@ -1,18 +1,16 @@
 # ATS-Proof Resume Generator
 
-**Transform your job application game. Forever.**
+Job search tools charge $9 a week to $49 a month to rewrite your resume so a robot doesn't throw it in the trash. That felt like an insulting business model to build during a recession, so I built the free version instead.
 
-An AI-powered tool that doesn't just optimize your resume—it weaponizes it against Applicant Tracking Systems (ATS) to ensure you get past the digital gatekeepers and into human hands.
+This is an AI-powered resume rewriter that targets a specific, unglamorous problem: about 75% of resumes get filtered out by an Applicant Tracking System before a human ever opens them. Not because the candidate is unqualified, but because the resume doesn't speak the ATS's dialect. This tool teaches your resume the dialect, for free.
 
-> "The difference between a good resume and a great one isn't just content—it's strategic alignment with what machines and humans are looking for."
+## What it actually does
 
-## What This Tool Actually Does
-
-- **Job Posting Analysis**: Extracts the critical signals from job descriptions that most candidates miss
-- **Resume Optimization**: Restructures your experience to mirror exactly what employers want to see
-- **ATS-Friendly Formatting**: Implements the hidden formatting rules that make your resume machine-readable
-- **Personalized Recommendations**: Provides tactical suggestions that close the gap between you and the ideal candidate
-- **Interview Question Generator**: Creates custom questions that let you control the conversation during interviews
+- **Job posting analysis**: pulls the real signal out of a job description, not just the buzzwords at the top
+- **Resume rewriting**: restructures your real experience to mirror what the posting is asking for
+- **ATS-friendly formatting**: applies the unglamorous formatting rules that keep a resume machine-readable
+- **Tactical recommendations**: tells you what's actually missing instead of "add more keywords"
+- **Interview question generator**: hands you the questions your own new resume is going to invite, so you can prep before you need to
 
 ## The Technical Requirements
 
@@ -399,19 +397,15 @@ If you're running on an ARM-based system (like M1/M2 Mac):
 
 The application is designed to fall back to creating a placeholder image when screenshot capture fails, so your resume processing should still work even if screenshots cannot be captured.
 
-## The Philosophy Behind This Tool
+## Why This Isn't Just Keyword Stuffing
 
-Most resume tools focus on cosmetic improvements. This one doesn't.
+Most resume tools optimize for looking nicer. That was never the bottleneck. A job application has two readers with completely different comprehension: an algorithm scanning for phrase matches, and a human scanning for whether you sound worth calling. This tool analyzes the actual language of the posting and restructures your real experience to match it. Not stuffing keywords in randomly, translating your work into the dialect the employer is already speaking.
 
-This tool operates on the principle that modern job applications are a two-audience game: you need to satisfy both the algorithm and the human. By analyzing the specific language patterns in job descriptions and restructuring your experience to match, you're not just "keyword stuffing"—you're translating your value into the exact dialect the employer speaks.
+That distinction is the entire product.
 
-The difference is subtle but critical.
+## Last Thing
 
-## Final Thoughts
-
-Your resume isn't just a document—it's the most important piece of marketing you'll ever create for yourself.
-
-Use this tool not as a magic bullet, but as a strategic advantage in a game where most people don't even know the rules. The difference between getting filtered out and getting called back often comes down to how well you speak the language of both the machines and the humans who make hiring decisions.
+Your resume is marketing copy for one product: you. Treat this tool like a strategic edge in a game most candidates don't realize they're playing, not a magic button. Getting filtered out versus getting a callback usually comes down to whether you can speak both languages, the machine's and the human's, in the same document.
 
 ---
 
