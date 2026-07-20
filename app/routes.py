@@ -23,7 +23,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 @router.get("/", response_class=HTMLResponse)
 async def landing_page(request: Request):
     """Landing page for the application."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html")
 
 @router.get("/favicon.ico", include_in_schema=False)
 async def favicon():
@@ -118,9 +118,9 @@ async def upload_resume(
 async def result_page(request: Request, job_id: str, download_url: str):
     """Show result page with download link and progress status."""
     return templates.TemplateResponse(
-        "result.html", 
+        request,
+        "result.html",
         {
-            "request": request, 
             "download_url": download_url,
             "job_id": job_id
         }

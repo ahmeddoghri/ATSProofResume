@@ -34,8 +34,10 @@ class TestAppMain(unittest.TestCase):
         self.assertIn("AI-powered tool", app.description)
         self.assertEqual(app.version, "1.0.0")
         
-        # Verify routes are registered - update with actual routes
-        routes = [route.path for route in app.routes]
+        # Verify routes are registered - update with actual routes.
+        # app.routes doesn't flatten included routers in current FastAPI,
+        # so read the resolved paths from the OpenAPI schema instead.
+        routes = list(app.openapi()["paths"].keys())
         self.assertIn("/upload_resume/", routes)
         self.assertIn("/generate_questions/", routes)
         self.assertIn("/available_models", routes)

@@ -7,8 +7,8 @@ import re
 import json
 import logging
 from langchain_openai import ChatOpenAI
-from langchain.prompts import PromptTemplate
-from langchain_core.output_parsers.json import JsonOutputParser 
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers.json import JsonOutputParser
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from openai import OpenAI
