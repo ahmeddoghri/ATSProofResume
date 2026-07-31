@@ -176,3 +176,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Virtualenv
+.venv/
+*.egg-info/

@@ -11,6 +11,8 @@ import uuid
 import shutil
 import asyncio
 import re
+import tempfile
+from ats import score_resume
 from openai import OpenAI
 from job_scraper import JobPostingScraper
 from interview_questions import generate_interview_questions
@@ -29,6 +31,42 @@ async def landing_page(request: Request):
 async def favicon():
     """Favicon for the application."""
     return FileResponse(os.path.join("static", "favicon.ico"))
+
+
+@router.post("/audit/")
+async def audit_resume(
+    file: UploadFile = File(...),
+    job_description: str = Form(""),
+):
+    """Score a resume for ATS compatibility. No API key, no model, no cost.
+
+    Deciding whether a document parses is arithmetic over its own XML, so this
+    endpoint stays free and offline. Only the rewriting features need OpenAI.
+    """
+    if not (file.filename or "").lower().endswith(".docx"):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Upload a .docx resume. Legacy .doc and PDF are not supported."},
+        )
+
+    tmp_dir = tempfile.mkdtemp(prefix="ats-audit-")
+    tmp_path = os.path.join(tmp_dir, sanitize_filename(file.filename or "resume.docx"))
+    try:
+        with open(tmp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        card = score_resume(tmp_path, job_description or None)
+        payload = card.to_dict()
+        # The stored path is a server temp directory; it is noise to the caller.
+        payload["path"] = file.filename
+        return JSONResponse(content=payload)
+    except Exception as exc:  # noqa: BLE001
+        logging.error(f"Audit failed: {exc}")
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Could not read that file as a DOCX resume: {exc}"},
+        )
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 @router.post("/upload_resume/")

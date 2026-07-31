@@ -1,0 +1,120 @@
+{
+  "cases": [
+    {
+      "fixture": "clean",
+      "planted": [],
+      "fired": [],
+      "missed": [],
+      "spurious": [],
+      "parse_score": 100,
+      "grade": "A",
+      "match_score": 79,
+      "critical": 0,
+      "warnings": 0
+    },
+    {
+      "fixture": "header_contact",
+      "planted": [
+        "dropped_content",
+        "contact_details"
+      ],
+      "fired": [
+        "contact_details",
+        "dropped_content"
+      ],
+      "missed": [],
+      "spurious": [],
+      "parse_score": 47,
+      "grade": "F",
+      "match_score": 79,
+      "critical": 2,
+      "warnings": 1
+    },
+    {
+      "fixture": "no_dates",
+      "planted": [
+        "parseable_dates"
+      ],
+      "fired": [
+        "parseable_dates"
+      ],
+      "missed": [],
+      "spurious": [],
+      "parse_score": 88,
+      "grade": "B",
+      "match_score": 79,
+      "critical": 0,
+      "warnings": 1
+    },
+    {
+      "fixture": "sparse",
+      "planted": [
+        "document_length",
+        "contact_details",
+        "parseable_dates",
+        "section_headings"
+      ],
+      "fired": [
+        "contact_details",
+        "document_length",
+        "parseable_dates",
+        "section_headings"
+      ],
+      "missed": [],
+      "spurious": [],
+      "parse_score": 5,
+      "grade": "F",
+      "match_score": 5,
+      "critical": 2,
+      "warnings": 5
+    },
+    {
+      "fixture": "table_layout",
+      "planted": [
+        "table_layout",
+        "risky_characters"
+      ],
+      "fired": [
+        "risky_characters",
+        "table_layout"
+      ],
+      "missed": [],
+      "spurious": [],
+      "parse_score": 74,
+      "grade": "C",
+      "match_score": 70,
+      "critical": 1,
+      "warnings": 0
+    },
+    {
+      "fixture": "unlabeled_sections",
+      "planted": [
+        "section_headings"
+      ],
+      "fired": [
+        "section_headings"
+      ],
+      "missed": [],
+      "spurious": [],
+      "parse_score": 70,
+      "grade": "C",
+      "match_score": 79,
+      "critical": 0,
+      "warnings": 3
+    }
+  ],
+  "totals": {
+    "true_positives": 10,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+  },
+  "separation": {
+    "clean_parse_score": 100,
+    "worst_defective_parse_score": 5,
+    "mean_defective_parse_score": 56.8,
+    "gap": 43.2
+  }
+}

@@ -1,11 +1,65 @@
+import json
 import os
 import zipfile
 import logging
 from app.utils import extract_text_from_docx, sanitize_filename, format_markdown_for_text
 from app.state import progress_status, OUTPUT_DIR
+from ats import format_scorecard, score_resume
 from resume.processor import ResumeProcessor
 from recommendations import generate_recommendations
 from interview_questions import generate_interview_questions
+
+
+def write_ats_audit(original_path, rewritten_path, job_text, company_dir):
+    """Score the resume before and after rewriting, and save the comparison.
+
+    This is the only part of the pipeline that can contradict the rest of it.
+    If the rewrite made the document harder for a parser to read, the report
+    says so, because a tool that only ever reports success is not measuring
+    anything. Runs offline and never raises into the job; a failed audit
+    should not cost the user their rewritten resume.
+    """
+    try:
+        before = score_resume(original_path, job_text)
+        after = score_resume(rewritten_path, job_text)
+
+        lines = [
+            "ATS COMPATIBILITY REPORT",
+            "========================",
+            "",
+            "Scored offline with deterministic structural checks. No model opinion",
+            "is involved in these numbers.",
+            "",
+            f"{'':24} {'before':>8} {'after':>8} {'change':>8}",
+            f"{'Parse score (of 100)':24} {before.parse_score:>8} {after.parse_score:>8} "
+            f"{after.parse_score - before.parse_score:>+8}",
+        ]
+        if job_text:
+            lines.append(
+                f"{'Keyword match (of 100)':24} {before.match_score:>8} "
+                f"{after.match_score:>8} {after.match_score - before.match_score:>+8}"
+            )
+        lines += [
+            f"{'Critical findings':24} {len(before.critical):>8} {len(after.critical):>8} "
+            f"{len(after.critical) - len(before.critical):>+8}",
+            "",
+            "--- ORIGINAL ---",
+            format_scorecard(before, verbose=True),
+            "",
+            "--- REWRITTEN ---",
+            format_scorecard(after, verbose=True),
+        ]
+
+        with open(os.path.join(company_dir, "ats_report.txt"), "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        with open(os.path.join(company_dir, "ats_report.json"), "w", encoding="utf-8") as f:
+            json.dump(
+                {"before": before.to_dict(), "after": after.to_dict()}, f, indent=2
+            )
+        return {"before": before.parse_score, "after": after.parse_score}
+    except Exception as exc:  # noqa: BLE001
+        logging.error(f"ATS audit failed: {exc}")
+        return None
 
 def process_resume_job(
     job_id: str, 
@@ -99,7 +153,17 @@ def process_resume_job(
         
         progress_status[job_id] = 85
         logging.info(f"Interview questions generated for job {job_id} - Progress: 85%")
-        
+
+        # Audit what the rewrite actually did to machine readability.
+        audit = write_ats_audit(
+            resume_path, formatted_resume_path, job_data.get("job_text", ""), company_dir
+        )
+        if audit:
+            logging.info(
+                f"Job {job_id} ATS parse score: {audit['before']} -> {audit['after']}"
+            )
+        progress_status[job_id] = 90
+
         # Step 3: Bundle all outputs into a ZIP file
         job_title = sanitize_filename(job_data.get("job_title", "Job_Description"))[:50]
         company_name = sanitize_filename(job_data.get("company", "Unknown_Company"))

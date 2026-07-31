@@ -6,11 +6,122 @@ This is an AI-powered resume rewriter that targets a specific, unglamorous probl
 
 ## What it actually does
 
+- **ATS audit (free, offline, no API key)**: scores whether a parser can read your resume at all, and names the specific element breaking it
 - **Job posting analysis**: pulls the real signal out of a job description, not just the buzzwords at the top
 - **Resume rewriting**: restructures your real experience to mirror what the posting is asking for
 - **ATS-friendly formatting**: applies the unglamorous formatting rules that keep a resume machine-readable
+- **Before-and-after scoring**: measures what the rewrite did to machine readability, and says so when it made things worse
 - **Tactical recommendations**: tells you what's actually missing instead of "add more keywords"
 - **Interview question generator**: hands you the questions your own new resume is going to invite, so you can prep before you need to
+
+## The audit: making "ATS-proof" a checkable claim
+
+For a long time this tool asked a language model to make resumes better and had
+no way to tell whether it had. "ATS-proof" was a name, not a measurement.
+
+The `ats` package fixes that. It reads your DOCX twice: once as Word renders it,
+and once the way a resume parser does, walking the document body in XML order.
+The gap between those two readings is where resumes die.
+
+```bash
+pip install python-docx        # the entire dependency list for the audit
+python -m ats.cli score resume.docx --job posting.txt
+```
+
+```
+resume.docx
+Parse score: 47/100  (grade F)
+Match score: 79/100  (31 of 41 terms present)
+Parsed 150 words, 17 paragraphs, 0 tables, 0 images
+Text a parser never sees: 1 snippet(s)
+
+Findings:
+  [critical] dropped_content: Contact details sit in the header and will not be parsed
+             (JORDAN REYES | jordan.reyes@example.com | (555) 123-4567 | Austin, TX)
+  [critical] contact_details: Email address exists but not where a parser will find it
+  [warning]  contact_details: No phone number found in the parsed text
+```
+
+That resume looks perfect to a human and is unreachable by a recruiter, because
+the contact block is in the page header. No model opinion is involved in that
+finding; it is arithmetic over the document's own XML.
+
+### Two scores, deliberately not averaged
+
+**Parse score** asks whether an ATS can read the document at all. **Match score**
+asks how much of the posting's vocabulary is present. Collapsing them into one
+number hides the case that matters most: a keyword-perfect resume trapped in a
+two-column table scores 95 on match and 74 on parse, and the useful advice is
+about the table, not the keywords.
+
+Match score is `0` when you supply no job posting, rather than a made-up number.
+
+### What it checks, and why each one
+
+| Check | Real failure it maps to |
+| --- | --- |
+| `dropped_content` | Headers, footers, and text boxes render on screen and are skipped by parsers walking the body |
+| `table_layout` | Multi-column tables flatten cell by cell, interleaving your skills column into your job history |
+| `contact_details` | An email that exists only in a header, or only inside an image, is unreachable |
+| `section_headings` | Parsers file content by heading; "Where I've Been" maps to no known field |
+| `parseable_dates` | Without machine-readable ranges, nothing can compute years of experience |
+| `risky_characters` | Symbol-font bullets extract as private-use garbage |
+| `image_only_content` | ATS parsers do not run OCR |
+| `document_length` | Almost no parsed text is the signature of a design-heavy resume |
+
+### The detector is itself measured
+
+A linter nobody has tested against known defects is a linter nobody has tested.
+`ats/fixtures.py` generates resumes from code with deliberately planted flaws,
+and `python -m ats.bench` scores the checks against them:
+
+| fixture | parse | grade | planted defects | detected | spurious |
+| --- | ---: | :---: | --- | :---: | :---: |
+| clean | 100 | A | (none) | n/a | 0 |
+| header_contact | 47 | F | dropped_content, contact_details | yes | 0 |
+| no_dates | 88 | B | parseable_dates | yes | 0 |
+| sparse | 5 | F | document_length, contact_details, parseable_dates, section_headings | yes | 0 |
+| table_layout | 74 | C | table_layout, risky_characters | yes | 0 |
+| unlabeled_sections | 70 | C | section_headings | yes | 0 |
+
+**Precision 1.00, recall 1.00** (10 true positives, 0 false positives, 0 false
+negatives). The clean resume scores 100 and fires nothing; broken resumes average
+56.8, a 43.2-point gap.
+
+Precision matters more than it looks. A resume linter that invents problems on a
+clean document teaches people to ignore it, so the clean fixture firing zero
+findings is the property under test. `benchmark.json` is committed and diffed in
+CI, so these numbers cannot drift away from the code.
+
+Fixtures are generated rather than collected, so no one's real resume is in this
+repository.
+
+### Other ways to run it
+
+```bash
+# See exactly what a parser receives, and what it never will
+python -m ats.cli extract resume.docx --show-dropped
+
+# Did the rewrite actually help?
+python -m ats.cli compare original.docx rewritten.docx --job posting.txt
+
+# Gate a workflow: non-zero exit below the threshold
+python -m ats.cli score resume.docx --min-score 80
+```
+
+`POST /audit/` does the same thing over HTTP with no API key, since deciding
+whether a document parses is arithmetic and shouldn't sit behind a paywall.
+
+Every rewrite the app performs now ships an `ats_report.txt` and
+`ats_report.json` in the download bundle, scoring the resume before and after.
+If the rewrite lowered the parse score, the report says so.
+
+### Limits
+
+- **DOCX only.** PDF and legacy `.doc` are rejected with a message rather than parsed badly.
+- **It simulates a mainstream parser, not a specific vendor.** Workday, Taleo, and Greenhouse each differ at the edges. The failure modes checked here are the ones they broadly share.
+- **A high parse score is a floor, not a promise.** It means the document is readable, not that you are a fit.
+- **Keyword matching is lexical.** It knows "kubernetes" is absent; it does not know your "container orchestration at scale" covers it.
 
 ## The Technical Requirements
 
